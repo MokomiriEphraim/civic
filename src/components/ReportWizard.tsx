@@ -1,0 +1,734 @@
+import React, { useState, useRef } from 'react';
+import {
+  Camera,
+  Upload,
+  Info,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  MapPin,
+  Building2,
+  Calendar,
+  AlertTriangle,
+  Sparkles,
+  Maximize2
+} from 'lucide-react';
+import { StepNumber, HazardReport } from '../types';
+import { HAZARD_PRESETS } from '../data/mockReports';
+import { WavyFooter } from './WavyFooter';
+import { MapModal } from './MapModal';
+import potholeImg from '../assets/images/pothole_road_hazard_1791996006345.jpg';
+
+interface ReportWizardProps {
+  onCancel: () => void;
+  onFinish: (report: HazardReport) => void;
+  onViewReports: () => void;
+  initialStep?: StepNumber;
+}
+
+export const ReportWizard: React.FC<ReportWizardProps> = ({
+  onCancel,
+  onFinish,
+  onViewReports,
+  initialStep = 1,
+}) => {
+  const [currentStep, setCurrentStep] = useState<StepNumber>(initialStep);
+  const [selectedPhoto, setSelectedPhoto] = useState<string>(potholeImg);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [showMap, setShowMap] = useState<boolean>(false);
+
+  // AI Classification state (defaults matching the mockup)
+  const [hazardCategory, setHazardCategory] = useState('Road Hazard');
+  const [hazardSpecific, setHazardSpecific] = useState('Pothole');
+  const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('High');
+  const [severityScore] = useState(88);
+  const [hazardDescription, setHazardDescription] = useState(
+    'Large pothole, potential risk to vehicles and pedestrians.'
+  );
+  const [department, setDepartment] = useState('Roads & Stormwater');
+  const [departmentUnit, setDepartmentUnit] = useState('(Maintenance & Repairs)');
+  const [coordinates, setCoordinates] = useState('-33.9249, 18.4241');
+  const [address, setAddress] = useState('Kloof Nek Rd & Camp St, Cape Town');
+
+  // Step 3 details
+  const [userNotes, setUserNotes] = useState('');
+  const [noticedDate, setNoticedDate] = useState('2026-10-14');
+  const [contact, setContact] = useState('');
+
+  // Submitted ticket info
+  const [generatedTicketId, setGeneratedTicketId] = useState('#CF-45821');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File upload handler
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSelectedPhoto(event.target.result as string);
+          runSimulatedAiClassification('Uploaded Hazard');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSelectPreset = (presetIndex: number) => {
+    const preset = HAZARD_PRESETS[presetIndex];
+    setSelectedPhoto(preset.photoUrl);
+    setHazardCategory(preset.hazardType);
+    setHazardSpecific(preset.subType);
+    setSeverity(preset.severity);
+    setHazardDescription(preset.description);
+    setDepartment(preset.department);
+    setDepartmentUnit(preset.departmentUnit);
+    setCoordinates(preset.location);
+    setAddress(preset.address);
+  };
+
+  const runSimulatedAiClassification = (customLabel?: string) => {
+    setIsAnalyzing(true);
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      if (customLabel) {
+        setHazardDescription('Issue detected and classified by civic vision model.');
+      }
+    }, 700);
+  };
+
+  const handleGoToReview = () => {
+    runSimulatedAiClassification();
+    setCurrentStep(2);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newId = `#CF-${Math.floor(45800 + Math.random() * 99)}`;
+    setGeneratedTicketId(newId);
+
+    const newReport: HazardReport = {
+      id: newId,
+      hazardType: `${hazardCategory} (${hazardSpecific})`,
+      subType: hazardSpecific,
+      department: department,
+      departmentUnit: departmentUnit,
+      location: coordinates,
+      address: address,
+      status: 'In Progress',
+      date: '14 Oct 2026',
+      severity: severity,
+      description: userNotes.trim() ? userNotes : hazardDescription,
+      photoUrl: selectedPhoto,
+      contact: contact || 'mpho.shiang@example.com',
+      assignedTeam: 'Roads Crew Delta 4',
+      detectedAt: '14 Oct 2026, 09:39 AM',
+      timeline: [
+        { stage: 'Photo Submitted', timestamp: '14 Oct 2026, 09:39 AM', done: true },
+        { stage: 'AI Hazard Verification', timestamp: '14 Oct 2026, 09:40 AM', done: true },
+        { stage: 'Dispatched to Department', timestamp: '14 Oct 2026, 09:41 AM', done: true },
+        { stage: 'Repair Crew Scheduled', timestamp: 'In Queue', done: false },
+      ],
+    };
+
+    onFinish(newReport);
+    setCurrentStep(4);
+  };
+
+  const handleReset = () => {
+    setCurrentStep(1);
+    setSelectedPhoto(potholeImg);
+    setUserNotes('');
+    setContact('');
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-70px)] bg-[#F6F8F5] flex flex-col justify-between">
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 pt-5 pb-8 flex-1">
+        {/* Top Back Navigation (Visible in steps 1, 2, 3) */}
+        {currentStep < 4 && (
+          <div className="mb-4">
+            <button
+              onClick={() => {
+                if (currentStep === 1) onCancel();
+                else setCurrentStep((prev) => (prev - 1) as StepNumber);
+              }}
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          </div>
+        )}
+
+        {/* Stepper Progress Bar (Steps 1 to 4) */}
+        {currentStep < 4 && (
+          <div className="flex items-center justify-between max-w-md mx-auto mb-8 sm:mb-10 px-2 select-none">
+            {/* Step 1 */}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition ${
+                  currentStep > 1
+                    ? 'bg-[#234E35] text-white'
+                    : currentStep === 1
+                    ? 'bg-[#234E35] text-white'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {currentStep > 1 ? <Check className="w-3.5 h-3.5" /> : '1'}
+              </div>
+              <span
+                className={`text-xs font-semibold ${
+                  currentStep >= 1 ? 'text-slate-900' : 'text-slate-400'
+                }`}
+              >
+                Photo
+              </span>
+            </div>
+
+            <div
+              className={`flex-1 h-0.5 mx-3 transition ${
+                currentStep >= 2 ? 'bg-[#234E35]' : 'bg-slate-200'
+              }`}
+            />
+
+            {/* Step 2 */}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition ${
+                  currentStep > 2
+                    ? 'bg-[#234E35] text-white'
+                    : currentStep === 2
+                    ? 'bg-[#234E35] text-white'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {currentStep > 2 ? <Check className="w-3.5 h-3.5" /> : '2'}
+              </div>
+              <span
+                className={`text-xs font-semibold ${
+                  currentStep >= 2 ? 'text-slate-900' : 'text-slate-400'
+                }`}
+              >
+                Review
+              </span>
+            </div>
+
+            <div
+              className={`flex-1 h-0.5 mx-3 transition ${
+                currentStep >= 3 ? 'bg-[#234E35]' : 'bg-slate-200'
+              }`}
+            />
+
+            {/* Step 3 */}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition ${
+                  currentStep > 3
+                    ? 'bg-[#234E35] text-white'
+                    : currentStep === 3
+                    ? 'bg-[#234E35] text-white'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {currentStep > 3 ? <Check className="w-3.5 h-3.5" /> : '3'}
+              </div>
+              <span
+                className={`text-xs font-semibold ${
+                  currentStep >= 3 ? 'text-slate-900' : 'text-slate-400'
+                }`}
+              >
+                Details
+              </span>
+            </div>
+
+            <div
+              className={`flex-1 h-0.5 mx-3 transition ${
+                currentStep === 4 ? 'bg-[#234E35]' : 'bg-slate-200'
+              }`}
+            />
+
+            {/* Step 4 */}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  currentStep === 4
+                    ? 'bg-[#234E35] text-white'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                4
+              </div>
+              <span
+                className={`text-xs font-semibold ${
+                  currentStep === 4 ? 'text-slate-900' : 'text-slate-400'
+                }`}
+              >
+                Submit
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* STEP 1: PHOTO UPLOAD */}
+        {/* ---------------------------------------------------- */}
+        {currentStep === 1 && (
+          <div className="animate-in fade-in duration-200">
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-1.5"
+              style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
+            >
+              Report a Municipal Hazard
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mb-6">
+              Take a clear photo of the issue or upload from your device.
+            </p>
+
+            {/* Large Upload Box */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-300 rounded-2xl p-8 sm:p-12 text-center bg-white/70 hover:bg-white hover:border-[#234E35]/60 transition cursor-pointer flex flex-col items-center justify-center shadow-xs group"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+
+              {/* Camera Circle Icon */}
+              <div className="w-14 h-14 rounded-full bg-[#EBF5EE] text-[#234E35] flex items-center justify-center mb-4 group-hover:scale-105 transition shadow-xs">
+                <Camera className="w-6 h-6 text-[#234E35]" />
+              </div>
+
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base mb-1">
+                Tap to take a photo
+              </h3>
+              <p className="text-xs text-slate-500 mb-3">or drag and drop</p>
+
+              <div className="flex items-center justify-center w-full max-w-xs my-2">
+                <div className="h-px bg-slate-200 flex-1" />
+                <span className="px-3 text-[11px] text-slate-400 uppercase font-medium">
+                  or
+                </span>
+                <div className="h-px bg-slate-200 flex-1" />
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+              >
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <span>Upload from device</span>
+              </button>
+            </div>
+
+            {/* Quick Demo Preset Picker */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-semibold text-slate-500">
+                Quick Demo Presets:
+              </span>
+              {HAZARD_PRESETS.map((p, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSelectPreset(idx)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition font-medium ${
+                    selectedPhoto === p.photoUrl
+                      ? 'bg-[#234E35] text-white border-[#234E35]'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                  }`}
+                >
+                  {p.subType}
+                </button>
+              ))}
+            </div>
+
+            {/* Photo Preview Indicator if selected */}
+            {selectedPhoto && (
+              <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={selectedPhoto}
+                    alt="Selected hazard"
+                    className="w-12 h-12 rounded-lg object-cover border border-slate-200"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      Ready for analysis
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Target: {hazardSpecific} (Cape Town)
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-[#2E7D43] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                  Image Loaded ✓
+                </span>
+              </div>
+            )}
+
+            {/* Tip Box */}
+            <div className="mt-5 p-3.5 rounded-xl bg-white/90 border border-slate-200/90 flex items-start gap-2.5 text-slate-600">
+              <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+              <p className="text-xs leading-relaxed">
+                <strong className="text-slate-800">Tip:</strong> Clear photos with visible surroundings help us find the exact location and expedite crew dispatch.
+              </p>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={handleGoToReview}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#234E35] hover:bg-[#1A3D29] text-white text-xs sm:text-sm font-semibold transition shadow-xs"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* STEP 2: REVIEW (AI ANALYSIS) */}
+        {/* ---------------------------------------------------- */}
+        {currentStep === 2 && (
+          <div className="animate-in fade-in duration-200">
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-6"
+              style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
+            >
+              We've analysed your photo
+            </h2>
+
+            {/* Main Split Review Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12 gap-0 mb-8">
+              {/* Left Column: Photo Preview with Detected Tag */}
+              <div className="md:col-span-5 relative bg-slate-900 min-h-[240px] md:min-h-[340px] flex items-center justify-center overflow-hidden">
+                <img
+                  src={selectedPhoto}
+                  alt="Detected hazard preview"
+                  className="w-full h-full object-cover"
+                />
+
+                {/* "[ ] Detected" green tag badge (as seen on the mockup) */}
+                <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#234E35]/95 backdrop-blur-xs text-white text-[11px] font-bold tracking-wide border border-emerald-400/40 shadow-sm">
+                  <div className="w-2.5 h-2.5 border border-emerald-300 rounded-xs flex items-center justify-center">
+                    <div className="w-1 h-1 bg-emerald-300 rounded-full" />
+                  </div>
+                  <span>Detected</span>
+                </div>
+
+                {/* Expand / zoom preview button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMap(true)}
+                  className="absolute bottom-3 right-3 p-1.5 rounded-md bg-black/60 text-white hover:bg-black/80 transition text-[10px] flex items-center gap-1"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Inspect</span>
+                </button>
+              </div>
+
+              {/* Right Column: AI Details & Routing */}
+              <div className="md:col-span-7 p-5 sm:p-7 flex flex-col justify-between">
+                <div>
+                  {/* Hazard Title Block */}
+                  <div className="flex items-start gap-3.5 mb-5">
+                    <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-[#E65A2C] border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="w-6 h-6 text-[#E65A2C]" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-base sm:text-lg text-slate-900 leading-tight">
+                        {hazardCategory}
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium text-slate-500">
+                        {hazardSpecific}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Severity Bar */}
+                  <div className="mb-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-semibold text-slate-700">
+                        Severity
+                      </span>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E65A2C] text-white">
+                        {severity}
+                      </span>
+                    </div>
+                    {/* Meter bar */}
+                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-500 to-[#E65A2C] rounded-full transition-all duration-700"
+                        style={{ width: `${severityScore}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Description text */}
+                  <p className="text-xs text-slate-600 leading-relaxed mb-5">
+                    {hazardDescription}
+                  </p>
+
+                  {/* Location Coordinate */}
+                  <div className="mb-5 flex items-center justify-between text-xs border-t border-slate-100 pt-3">
+                    <div className="flex items-center gap-2 text-slate-700">
+                      <MapPin className="w-4 h-4 text-emerald-800 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold block text-slate-800">Location</span>
+                        <span className="text-slate-500 font-mono text-[11px]">
+                          {coordinates}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(true)}
+                      className="text-xs font-semibold text-[#234E35] hover:underline"
+                    >
+                      View on map
+                    </button>
+                  </div>
+
+                  {/* Assigned Department box */}
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-[#EBF5EE] border border-emerald-200/70 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-white text-[#234E35] flex items-center justify-center shadow-2xs border border-emerald-100">
+                        <Building2 className="w-4 h-4 text-[#234E35]" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
+                          Assigned Department
+                        </span>
+                        <span className="text-xs font-bold text-slate-900 block leading-tight">
+                          {department}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {departmentUnit}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-[#234E35] text-white flex items-center justify-center flex-shrink-0">
+                      <Check className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI verification indicator */}
+                <div className="mt-4 pt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>AI Confidence 98.7% • Auto-routed by CivicFix Engine</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentStep(3)}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#234E35] hover:bg-[#1A3D29] text-white text-xs sm:text-sm font-semibold transition shadow-xs"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* STEP 3: DETAILS (ADDITIONAL INFORMATION) */}
+        {/* ---------------------------------------------------- */}
+        {currentStep === 3 && (
+          <div className="animate-in fade-in duration-200">
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-1.5"
+              style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
+            >
+              Additional Information
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mb-6">
+              Help us process this faster by providing a few more details.
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Field 1: Description */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-800 mb-1.5">
+                  Description <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  rows={4}
+                  placeholder="E.g. Near the bus stop, been there for a while."
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
+                />
+              </div>
+
+              {/* Field 2: Date noticed */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-800 mb-1.5">
+                  When did you notice this?
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={noticedDate}
+                    onChange={(e) => setNoticedDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
+                  />
+                  <Calendar className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Field 3: Contact */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-800 mb-1.5">
+                  Your contact <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder="Email or phone number"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
+                />
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="pt-4 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
+                </button>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#234E35] hover:bg-[#1A3D29] text-white text-xs sm:text-sm font-semibold transition shadow-sm"
+                >
+                  Submit Report
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* STEP 4: CONFIRMATION / TICKET GENERATED */}
+        {/* ---------------------------------------------------- */}
+        {currentStep === 4 && (
+          <div className="animate-in fade-in duration-300 max-w-xl mx-auto text-center pt-2">
+            {/* Big Green Circle Checkmark Badge */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#EBF5EE] text-[#234E35] flex items-center justify-center mx-auto mb-4 border border-emerald-200 shadow-xs">
+              <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-[#2E7D43]" />
+            </div>
+
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-2"
+              style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
+            >
+              Report Submitted!
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-7">
+              Your report has been successfully submitted. It will be reviewed and routed to the correct department.
+            </p>
+
+            {/* Ticket Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 text-left shadow-xs mb-6">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                <span className="font-bold text-sm sm:text-base text-slate-900">
+                  Ticket {generatedTicketId}
+                </span>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E65A2C] text-white">
+                  High Priority
+                </span>
+              </div>
+
+              {/* Rows */}
+              <div className="py-3.5 space-y-3 text-xs sm:text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Hazard Type</span>
+                  <span className="font-bold text-slate-800">
+                    {hazardCategory} ({hazardSpecific})
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Department</span>
+                  <span className="font-bold text-slate-800">{department}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Location</span>
+                  <div className="flex items-center gap-1 font-mono text-slate-800 font-medium text-xs">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-800" />
+                    <span>{coordinates}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={onViewReports}
+                className="w-full py-3 px-5 rounded-xl bg-[#234E35] hover:bg-[#1A3D29] text-white font-semibold text-xs sm:text-sm transition shadow-xs"
+              >
+                View My Reports
+              </button>
+
+              <button
+                type="button"
+                onClick={handleReset}
+                className="w-full py-2.5 px-5 rounded-xl bg-transparent hover:bg-slate-100 text-slate-700 font-medium text-xs sm:text-sm transition"
+              >
+                Report Another Hazard
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Decorative Wavy Landscape Footer */}
+      <WavyFooter
+        variant={currentStep === 4 ? 'submit' : 'minimal'}
+        text={currentStep === 4 ? 'Together we keep our city safe' : undefined}
+      />
+
+      {/* Map Inspection Modal */}
+      <MapModal
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        coordinates={coordinates}
+        address={address}
+        hazardTitle={`${hazardCategory} (${hazardSpecific})`}
+      />
+    </div>
+  );
+};

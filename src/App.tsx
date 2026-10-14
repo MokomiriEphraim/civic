@@ -1,0 +1,215 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { ActiveView, StepNumber, HazardReport } from './types';
+import { INITIAL_REPORTS } from './data/mockReports';
+import { Navbar } from './components/Navbar';
+import { LandingView } from './components/LandingView';
+import { ReportWizard } from './components/ReportWizard';
+import { DashboardView } from './components/DashboardView';
+import { Eye, Layers } from 'lucide-react';
+
+export default function App() {
+  const [activeView, setActiveView] = useState<ActiveView>('landing');
+  const [wizardStep, setWizardStep] = useState<StepNumber>(1);
+  const [reports, setReports] = useState<HazardReport[]>(INITIAL_REPORTS);
+  const [currentUser] = useState({
+    name: 'Mpho Shiang',
+    email: 'mpho.shiang@example.com',
+  });
+  const [showScreenSwitcher, setShowScreenSwitcher] = useState(true);
+
+  // Switch to report wizard at specific step
+  const handleStartReport = (step: StepNumber = 1) => {
+    setWizardStep(step);
+    setActiveView('report');
+  };
+
+  // When a report is submitted in wizard
+  const handleReportFinish = (newReport: HazardReport) => {
+    setReports((prev) => [newReport, ...prev]);
+  };
+
+  // Jump directly to any of the 6 screens shown in the mockup
+  const jumpToScreen = (screenIndex: number) => {
+    switch (screenIndex) {
+      case 1: // Landing
+        setActiveView('landing');
+        break;
+      case 2: // Step 1: Photo
+        setWizardStep(1);
+        setActiveView('report');
+        break;
+      case 3: // Step 2: Review (We've analysed your photo)
+        setWizardStep(2);
+        setActiveView('report');
+        break;
+      case 4: // Step 3: Details (Additional Information)
+        setWizardStep(3);
+        setActiveView('report');
+        break;
+      case 5: // Step 4: Submit (Report Submitted!)
+        setWizardStep(4);
+        setActiveView('report');
+        break;
+      case 6: // Dashboard (My Reports)
+        setActiveView('dashboard');
+        break;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-14">
+      {/* Top Navbar (hidden on dashboard since dashboard has its own sidebar layout) */}
+      {activeView !== 'dashboard' && (
+        <Navbar
+          activeView={activeView}
+          onNavigate={(view) => setActiveView(view)}
+          onStartReport={() => handleStartReport(1)}
+          user={currentUser}
+          onToggleUser={() => setActiveView('dashboard')}
+          variant={activeView === 'report' ? 'wizard' : 'landing'}
+        />
+      )}
+
+      {/* Main View Router */}
+      <main className="flex-1 flex flex-col">
+        {activeView === 'landing' && (
+          <LandingView
+            onStartReport={() => handleStartReport(1)}
+            onTrackReport={() => setActiveView('dashboard')}
+          />
+        )}
+
+        {activeView === 'report' && (
+          <ReportWizard
+            initialStep={wizardStep}
+            onCancel={() => setActiveView('landing')}
+            onFinish={handleReportFinish}
+            onViewReports={() => setActiveView('dashboard')}
+          />
+        )}
+
+        {activeView === 'dashboard' && (
+          <DashboardView
+            reports={reports}
+            onStartReport={() => handleStartReport(1)}
+            onGoHome={() => setActiveView('landing')}
+            currentUser={currentUser}
+          />
+        )}
+      </main>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Floating Mockup Screen Navigator (matches all 6 screens in image) */}
+      {/* ----------------------------------------------------------------- */}
+      {showScreenSwitcher && (
+        <aside
+          aria-label="Screen navigator"
+          className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 hover:bg-slate-900 backdrop-blur-md text-white px-3 sm:px-4 py-2 rounded-full shadow-2xl border border-white/20 flex items-center gap-1.5 sm:gap-2.5 text-xs transition duration-200"
+        >
+          <div className="flex items-center gap-1.5 pr-1 text-emerald-400 font-bold text-[11px] uppercase tracking-wider hidden sm:flex">
+            <Layers className="w-3.5 h-3.5" />
+            <span>Mockup Screens:</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => jumpToScreen(1)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'landing'
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 1: Landing Page"
+            >
+              1. Home
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(2)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'report' && wizardStep === 1
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 2: Step 1 Photo Upload"
+            >
+              2. Photo
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(3)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'report' && wizardStep === 2
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 3: Step 2 AI Review"
+            >
+              3. Review
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(4)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'report' && wizardStep === 3
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 4: Step 3 Details"
+            >
+              4. Details
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(5)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'report' && wizardStep === 4
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 5: Step 4 Submitted"
+            >
+              5. Submit
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(6)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'dashboard'
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 6: Dashboard My Reports"
+            >
+              6. Dashboard
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowScreenSwitcher(false)}
+            className="ml-1 text-slate-400 hover:text-white p-1"
+            title="Minimize bar"
+          >
+            ×
+          </button>
+        </aside>
+      )}
+
+      {/* Floating button to restore switcher if closed */}
+      {!showScreenSwitcher && (
+        <button
+          onClick={() => setShowScreenSwitcher(true)}
+          className="fixed bottom-3 right-3 z-40 bg-slate-900/90 text-white p-2 rounded-full shadow-lg hover:bg-slate-800 transition"
+          title="Open Screen Switcher"
+        >
+          <Eye className="w-4 h-4 text-emerald-400" />
+        </button>
+      )}
+    </div>
+  );
+}

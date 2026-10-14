@@ -1,0 +1,126 @@
+import React from 'react';
+import { Camera, Sparkles, Truck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { WavyFooter } from './WavyFooter';
+import heroBg from '../assets/images/civicfix_hero_landscape_1791996007184.jpg';
+
+interface LandingViewProps {
+  onStartReport: () => void;
+  onTrackReport: () => void;
+}
+
+export const LandingView: React.FC<LandingViewProps> = ({
+  onStartReport,
+  onTrackReport,
+}) => {
+  return (
+    <div className="relative min-h-[calc(100vh-80px)] flex flex-col justify-between overflow-hidden">
+      {/* Background Graphic - Panoramic City & Mountain with warm ambient gradient */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <img
+          src={heroBg}
+          alt="Cape Town Table Mountain Civic Panorama"
+          className="w-full h-full object-cover object-center lg:object-right filter brightness-[1.02] contrast-[0.98]"
+        />
+        {/* Soft overlay gradient to ensure text readability on the left */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#F6F8F5] via-[#F6F8F5]/90 to-transparent lg:w-[65%]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#F6F8F5] via-transparent to-white/40" />
+      </div>
+
+      {/* Main Hero Content */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-10 pt-8 sm:pt-14 pb-12 w-full">
+        <div className="max-w-2xl lg:max-w-xl">
+          {/* Main Headline */}
+          <h1
+            className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#163D25] leading-[1.08] mb-5"
+            style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
+          >
+            See it. Report it.
+            <br />
+            <span className="text-[#1A4329]">Get it fixed.</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-sm sm:text-base text-slate-700 leading-relaxed max-w-lg mb-8 font-normal">
+            Snap a photo of a municipal hazard and our system will automatically detect, classify and route it to the right department.
+          </p>
+
+          {/* 4 Feature Circles Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-3 mb-9">
+            {/* Step 1: Snap */}
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+              <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
+                <Camera className="w-5 h-5 text-emerald-100" />
+              </div>
+              <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
+                Snap
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
+                Take a photo or upload
+              </span>
+            </div>
+
+            {/* Step 2: AI Classifies */}
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+              <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
+                <Sparkles className="w-5 h-5 text-emerald-100" />
+              </div>
+              <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
+                AI Classifies
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
+                Detects the hazard, severity & location
+              </span>
+            </div>
+
+            {/* Step 3: Auto-Dispatch */}
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+              <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
+                <Truck className="w-5 h-5 text-emerald-100" />
+              </div>
+              <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
+                Auto-Dispatch
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
+                Sends to the right department
+              </span>
+            </div>
+
+            {/* Step 4: Track */}
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
+              <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
+                <CheckCircle2 className="w-5 h-5 text-emerald-100" />
+              </div>
+              <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
+                Track
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
+                See the status in real time
+              </span>
+            </div>
+          </div>
+
+          {/* Primary CTA Button */}
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              onClick={onStartReport}
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#E65A2C] hover:bg-[#D44E22] text-white font-semibold text-sm sm:text-base shadow-md hover:shadow-lg transition transform active:scale-98"
+            >
+              <span>Report a Hazard</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={onTrackReport}
+              className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-[#1A4329] hover:underline px-4 py-2"
+            >
+              Track an existing ticket →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Decorative Wavy Landscape Footer */}
+      <WavyFooter variant="landing" />
+    </div>
+  );
+};
