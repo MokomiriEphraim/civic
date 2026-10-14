@@ -1,7 +1,7 @@
 import React from 'react';
 import { CivicLogo } from './CivicLogo';
 import { ActiveView } from '../types';
-import { User, LogIn, PlusCircle, LayoutDashboard, Home } from 'lucide-react';
+import { User, PlusCircle, LayoutDashboard } from 'lucide-react';
 
 interface NavbarProps {
   activeView: ActiveView;
@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <CivicLogo showTagline={false} onClick={() => onNavigate('landing')} />
         </div>
         <div className="hidden md:block text-xs font-medium text-slate-400">
-          City of Cape Town • Citizen Portal
+          Cape Town • CivicFix report tracking demo
         </div>
 
         <div className="flex items-center gap-3">
@@ -40,20 +40,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             Report Hazard
           </button>
 
-          <button
-            onClick={onToggleUser}
-            className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full hover:bg-slate-100 transition border border-slate-200 text-slate-700 text-sm font-medium"
-          >
+          <div className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-slate-200 text-slate-700 text-sm font-medium">
             <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs border border-slate-300">
               <User className="w-4 h-4" />
             </div>
             <span className="hidden sm:inline font-semibold text-xs text-slate-800">
               {user?.name || 'Mpho Shiang'}
             </span>
-            <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
+          </div>
         </div>
       </header>
     );
@@ -81,7 +75,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onToggleUser}
               className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-xs hover:ring-2 hover:ring-[#234E35]/30 transition"
-              title={user ? user.name : 'Account Profile'}
+              title="Open dashboard"
+              aria-label="Open dashboard"
             >
               <User className="w-4 h-4 text-white" />
             </button>
@@ -135,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onNavigate('dashboard')}
             className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold bg-[#234E35] hover:bg-[#1A3D29] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full transition shadow-xs"
           >
-            Sign In
+            My Reports
           </button>
         </nav>
       </div>

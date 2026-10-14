@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { StepNumber, HazardReport } from '../types';
 import { HAZARD_PRESETS } from '../data/mockReports';
+import { createReport } from '../api/reports';
 import { WavyFooter } from './WavyFooter';
 import { MapModal } from './MapModal';
 import potholeImg from '../assets/images/pothole_road_hazard_1791996006345.jpg';
@@ -35,14 +36,13 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState<StepNumber>(initialStep);
   const [selectedPhoto, setSelectedPhoto] = useState<string>(potholeImg);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState<boolean>(false);
 
-  // AI Classification state (defaults matching the mockup)
+  // These are editable demo suggestions, not live AI classifications.
   const [hazardCategory, setHazardCategory] = useState('Road Hazard');
   const [hazardSpecific, setHazardSpecific] = useState('Pothole');
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('High');
-  const [severityScore] = useState(88);
   const [hazardDescription, setHazardDescription] = useState(
     'Large pothole, potential risk to vehicles and pedestrians.'
   );
@@ -53,31 +53,56 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
   // Step 3 details
   const [userNotes, setUserNotes] = useState('');
-  const [noticedDate, setNoticedDate] = useState('2026-10-14');
+  const [noticedDate, setNoticedDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 10);
+  });
   const [contact, setContact] = useState('');
 
   // Submitted ticket info
-  const [generatedTicketId, setGeneratedTicketId] = useState('#CF-45821');
+  const [generatedTicketId, setGeneratedTicketId] = useState<string | null>(null);
+  const [reportSaved, setReportSaved] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionLock = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File upload handler
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setSelectedPhoto(event.target.result as string);
-          runSimulatedAiClassification('Uploaded Hazard');
-        }
-      };
-      reader.readAsDataURL(file);
+  const processPhotoFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoError('Choose a JPEG, PNG, or WebP image.');
+      return;
     }
+    if (file.size === 0 || file.size > 10 * 1024 * 1024) {
+      setPhotoError('Choose an image smaller than 10 MB.');
+      return;
+    }
+
+    setPhotoError(null);
+    const reader = new FileReader();
+    reader.onerror = () => setPhotoError('The selected image could not be read.');
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setSelectedPhoto(reader.result);
+        setHazardDescription('Demo suggestion only. Please confirm the hazard details before submitting.');
+      } else {
+        setPhotoError('The selected image could not be read.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processPhotoFile(e.target.files?.[0]);
+    e.target.value = '';
   };
 
   const handleSelectPreset = (presetIndex: number) => {
     const preset = HAZARD_PRESETS[presetIndex];
+    setPhotoError(null);
     setSelectedPhoto(preset.photoUrl);
     setHazardCategory(preset.hazardType);
     setHazardSpecific(preset.subType);
@@ -89,59 +114,84 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
     setAddress(preset.address);
   };
 
-  const runSimulatedAiClassification = (customLabel?: string) => {
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      if (customLabel) {
-        setHazardDescription('Issue detected and classified by civic vision model.');
-      }
-    }, 700);
-  };
-
   const handleGoToReview = () => {
-    runSimulatedAiClassification();
     setCurrentStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = `#CF-${Math.floor(45800 + Math.random() * 99)}`;
-    setGeneratedTicketId(newId);
+    if (submissionLock.current) return;
+    if (photoError) {
+      setSubmissionError('Fix the photo selection error before submitting.');
+      return;
+    }
+    if (!selectedPhoto || !hazardCategory.trim() || !hazardSpecific.trim() || !department.trim()) {
+      setSubmissionError('Add a hazard photo and confirm the hazard details before submitting.');
+      return;
+    }
+    submissionLock.current = true;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    const timestamp = new Date();
+    const formattedTimestamp = timestamp.toLocaleString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const noticedAtDate = new Date(`${noticedDate}T12:00:00`);
+    const formattedDate = (
+      Number.isNaN(noticedAtDate.getTime()) ? timestamp : noticedAtDate
+    ).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
 
-    const newReport: HazardReport = {
-      id: newId,
+    const report: Omit<HazardReport, 'id'> = {
       hazardType: `${hazardCategory} (${hazardSpecific})`,
       subType: hazardSpecific,
       department: department,
       departmentUnit: departmentUnit,
       location: coordinates,
       address: address,
-      status: 'In Progress',
-      date: '14 Oct 2026',
+      status: 'Assigned',
+      date: formattedDate,
       severity: severity,
       description: userNotes.trim() ? userNotes : hazardDescription,
       photoUrl: selectedPhoto,
-      contact: contact || 'mpho.shiang@example.com',
-      assignedTeam: 'Roads Crew Delta 4',
-      detectedAt: '14 Oct 2026, 09:39 AM',
+      contact: contact.trim() || undefined,
+      detectedAt: formattedTimestamp,
       timeline: [
-        { stage: 'Photo Submitted', timestamp: '14 Oct 2026, 09:39 AM', done: true },
-        { stage: 'AI Hazard Verification', timestamp: '14 Oct 2026, 09:40 AM', done: true },
-        { stage: 'Dispatched to Department', timestamp: '14 Oct 2026, 09:41 AM', done: true },
-        { stage: 'Repair Crew Scheduled', timestamp: 'In Queue', done: false },
+        { stage: 'Report submitted', timestamp: formattedTimestamp, done: true },
       ],
     };
 
-    onFinish(newReport);
-    setCurrentStep(4);
+    try {
+      const savedReport = await createReport(report);
+      setGeneratedTicketId(savedReport.id);
+      setReportSaved(true);
+      onFinish(savedReport);
+      setCurrentStep(4);
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error ? error.message : 'The report could not be submitted.'
+      );
+    } finally {
+      submissionLock.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
     setCurrentStep(1);
     setSelectedPhoto(potholeImg);
+    setPhotoError(null);
     setUserNotes('');
     setContact('');
+    setGeneratedTicketId(null);
+    setReportSaved(false);
   };
 
   return (
@@ -286,16 +336,24 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
             <p className="text-xs sm:text-sm text-slate-600 mb-6">
               Take a clear photo of the issue or upload from your device.
             </p>
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Demo mode: hazard suggestions use example presets; this app does not currently run image AI or send reports to a municipality.
+            </p>
 
             {/* Large Upload Box */}
             <div
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                processPhotoFile(event.dataTransfer.files[0]);
+              }}
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-slate-300 rounded-2xl p-8 sm:p-12 text-center bg-white/70 hover:bg-white hover:border-[#234E35]/60 transition cursor-pointer flex flex-col items-center justify-center shadow-xs group"
             >
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 capture="environment"
                 className="hidden"
                 onChange={handleFileUpload}
@@ -309,7 +367,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
               <h3 className="font-bold text-slate-800 text-sm sm:text-base mb-1">
                 Tap to take a photo
               </h3>
-              <p className="text-xs text-slate-500 mb-3">or drag and drop</p>
+              <p className="text-xs text-slate-500 mb-3">or drag and drop · JPEG, PNG, or WebP, up to 10 MB</p>
 
               <div className="flex items-center justify-center w-full max-w-xs my-2">
                 <div className="h-px bg-slate-200 flex-1" />
@@ -321,6 +379,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
               <button
                 type="button"
+                aria-label="Choose a hazard photo"
                 onClick={(e) => {
                   e.stopPropagation();
                   fileInputRef.current?.click();
@@ -332,10 +391,16 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
               </button>
             </div>
 
+            {photoError && (
+              <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {photoError}
+              </p>
+            )}
+
             {/* Quick Demo Preset Picker */}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-semibold text-slate-500">
-                Quick Demo Presets:
+                Example photo presets:
               </span>
               {HAZARD_PRESETS.map((p, idx) => (
                 <button
@@ -363,15 +428,15 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   />
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">
-                      Ready for analysis
+                      Photo selected
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      Target: {hazardSpecific} (Cape Town)
+                      Suggested type: {hazardSpecific}
                     </span>
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-[#2E7D43] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
-                  Image Loaded ✓
+                  Preview ready
                 </span>
               </div>
             )}
@@ -380,7 +445,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
             <div className="mt-5 p-3.5 rounded-xl bg-white/90 border border-slate-200/90 flex items-start gap-2.5 text-slate-600">
               <Info className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
               <p className="text-xs leading-relaxed">
-                <strong className="text-slate-800">Tip:</strong> Clear photos with visible surroundings help us find the exact location and expedite crew dispatch.
+                <strong className="text-slate-800">Tip:</strong> Include nearby landmarks in your description. This demo does not determine your location or dispatch a municipal crew.
               </p>
             </div>
 
@@ -398,7 +463,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* STEP 2: REVIEW (AI ANALYSIS) */}
+        {/* STEP 2: DEMO CLASSIFICATION REVIEW */}
         {/* ---------------------------------------------------- */}
         {currentStep === 2 && (
           <div className="animate-in fade-in duration-200">
@@ -406,12 +471,12 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
               className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-6"
               style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
             >
-              We've analysed your photo
+              Review the suggested details
             </h2>
 
             {/* Main Split Review Card */}
             <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12 gap-0 mb-8">
-              {/* Left Column: Photo Preview with Detected Tag */}
+              {/* Left Column: Photo Preview */}
               <div className="md:col-span-5 relative bg-slate-900 min-h-[240px] md:min-h-[340px] flex items-center justify-center overflow-hidden">
                 <img
                   src={selectedPhoto}
@@ -424,7 +489,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   <div className="w-2.5 h-2.5 border border-emerald-300 rounded-xs flex items-center justify-center">
                     <div className="w-1 h-1 bg-emerald-300 rounded-full" />
                   </div>
-                  <span>Detected</span>
+                  <span>Photo preview</span>
                 </div>
 
                 {/* Expand / zoom preview button */}
@@ -470,7 +535,9 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                     <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-amber-500 to-[#E65A2C] rounded-full transition-all duration-700"
-                        style={{ width: `${severityScore}%` }}
+                        style={{
+                          width: `${({ Low: 25, Medium: 50, High: 75 }[severity])}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -508,7 +575,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                       </div>
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                          Assigned Department
+                          Suggested Department
                         </span>
                         <span className="text-xs font-bold text-slate-900 block leading-tight">
                           {department}
@@ -524,10 +591,10 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   </div>
                 </div>
 
-                {/* AI verification indicator */}
+                {/* Classification limitation */}
                 <div className="mt-4 pt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>AI Confidence 98.7% • Auto-routed by CivicFix Engine</span>
+                  <span>Demo classification only • Confirm details before submitting</span>
                 </div>
               </div>
             </div>
@@ -571,6 +638,11 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {submissionError && (
+                <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {submissionError}
+                </p>
+              )}
               {/* Field 1: Description */}
               <div>
                 <label className="block text-xs font-semibold text-slate-800 mb-1.5">
@@ -579,6 +651,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                 <textarea
                   value={userNotes}
                   onChange={(e) => setUserNotes(e.target.value)}
+                  maxLength={5000}
                   rows={4}
                   placeholder="E.g. Near the bus stop, been there for a while."
                   className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
@@ -610,6 +683,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   type="text"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
+                  maxLength={254}
                   placeholder="Email or phone number"
                   className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
                 />
@@ -628,9 +702,10 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#234E35] hover:bg-[#1A3D29] text-white text-xs sm:text-sm font-semibold transition shadow-sm"
                 >
-                  Submit Report
+                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
                 </button>
               </div>
             </form>
@@ -651,10 +726,12 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
               className="text-2xl sm:text-3xl font-extrabold text-[#163D25] mb-2"
               style={{ fontFamily: "'Space Grotesk', 'Plus Jakarta Sans', sans-serif" }}
             >
-              Report Submitted!
+              {reportSaved ? 'Report Saved' : 'Confirmation Preview'}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-7">
-              Your report has been successfully submitted. It will be reviewed and routed to the correct department.
+              {reportSaved
+                ? 'Your report was saved. This demo does not forward reports to a municipal department.'
+                : 'This is a preview. Submit a report to save it and receive a server-generated ticket number.'}
             </p>
 
             {/* Ticket Card */}
@@ -662,10 +739,10 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
               {/* Header */}
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <span className="font-bold text-sm sm:text-base text-slate-900">
-                  Ticket {generatedTicketId}
+                  {generatedTicketId ? `Ticket ${generatedTicketId}` : 'Ticket number pending'}
                 </span>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E65A2C] text-white">
-                  High Priority
+                  {severity} Severity
                 </span>
               </div>
 

@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActiveView, StepNumber, HazardReport } from './types';
-import { INITIAL_REPORTS } from './data/mockReports';
+import {
+  getReports,
+  updateReportStatus,
+} from './api/reports';
 import { Navbar } from './components/Navbar';
 import { LandingView } from './components/LandingView';
 import { ReportWizard } from './components/ReportWizard';
@@ -15,12 +18,45 @@ import { Eye, Layers } from 'lucide-react';
 export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>('landing');
   const [wizardStep, setWizardStep] = useState<StepNumber>(1);
-  const [reports, setReports] = useState<HazardReport[]>(INITIAL_REPORTS);
+  const [reports, setReports] = useState<HazardReport[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [currentUser] = useState({
-    name: 'Mpho Shiang',
-    email: 'mpho.shiang@example.com',
+    name: 'Demo Citizen',
+    email: 'demo@example.com',
   });
-  const [showScreenSwitcher, setShowScreenSwitcher] = useState(true);
+  const [showScreenSwitcher, setShowScreenSwitcher] = useState(import.meta.env.DEV);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadReports = async () => {
+      try {
+        setIsLoadingReports(true);
+        setApiError(null);
+        const loadedReports = await getReports();
+        if (!cancelled) {
+          setReports(loadedReports);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setApiError(
+            error instanceof Error ? error.message : 'Could not connect to the reports service.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingReports(false);
+        }
+      }
+    };
+
+    void loadReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   // Switch to report wizard at specific step
   const handleStartReport = (step: StepNumber = 1) => {
@@ -30,7 +66,26 @@ export default function App() {
 
   // When a report is submitted in wizard
   const handleReportFinish = (newReport: HazardReport) => {
-    setReports((prev) => [newReport, ...prev]);
+    setReports((prev) => [
+      newReport,
+      ...prev.filter((report) => report.id !== newReport.id),
+    ]);
+  };
+
+  const handleReportStatusUpdate = async (
+    id: string,
+    status: HazardReport['status']
+  ): Promise<HazardReport> => {
+    const updatedReport = await updateReportStatus(id, status);
+
+    setReports((prev) => {
+      const exists = prev.some((report) => report.id === id);
+      return exists
+        ? prev.map((report) => (report.id === id ? updatedReport : report))
+        : [updatedReport, ...prev];
+    });
+
+    return updatedReport;
   };
 
   // Jump directly to any of the 6 screens shown in the mockup
@@ -63,6 +118,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-14">
+      {apiError && activeView !== 'dashboard' && (
+        <div role="alert" className="bg-red-50 px-4 py-2 text-center text-sm text-red-800">
+          Could not load reports from the backend: {apiError}{' '}
+          <button
+            type="button"
+            onClick={() => setReloadToken((token) => token + 1)}
+            className="font-semibold underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Top Navbar (hidden on dashboard since dashboard has its own sidebar layout) */}
       {activeView !== 'dashboard' && (
         <Navbar
@@ -98,6 +165,10 @@ export default function App() {
             reports={reports}
             onStartReport={() => handleStartReport(1)}
             onGoHome={() => setActiveView('landing')}
+            onUpdateReportStatus={handleReportStatusUpdate}
+            isLoading={isLoadingReports}
+            loadError={apiError}
+            onRetryLoad={() => setReloadToken((token) => token + 1)}
             currentUser={currentUser}
           />
         )}
@@ -106,7 +177,7 @@ export default function App() {
       {/* ----------------------------------------------------------------- */}
       {/* Floating Mockup Screen Navigator (matches all 6 screens in image) */}
       {/* ----------------------------------------------------------------- */}
-      {showScreenSwitcher && (
+      {import.meta.env.DEV && showScreenSwitcher && (
         <aside
           aria-label="Screen navigator"
           className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 hover:bg-slate-900 backdrop-blur-md text-white px-3 sm:px-4 py-2 rounded-full shadow-2xl border border-white/20 flex items-center gap-1.5 sm:gap-2.5 text-xs transition duration-200"
@@ -201,7 +272,7 @@ export default function App() {
       )}
 
       {/* Floating button to restore switcher if closed */}
-      {!showScreenSwitcher && (
+      {import.meta.env.DEV && !showScreenSwitcher && (
         <button
           onClick={() => setShowScreenSwitcher(true)}
           className="fixed bottom-3 right-3 z-40 bg-slate-900/90 text-white p-2 rounded-full shadow-lg hover:bg-slate-800 transition"

@@ -1,0 +1,221 @@
+import 'dotenv/config';
+import express from 'express';
+import { randomInt } from 'node:crypto';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { HazardReport, HazardSeverity, ReportStatus } from '../src/types';
+
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const projectDirectory = path.resolve(serverDirectory, '..');
+const dataFile = path.resolve(
+  projectDirectory,
+  process.env.REPORTS_FILE ?? 'data/reports.json'
+);
+const port = Number(process.env.API_PORT ?? 3001);
+const app = express();
+
+const severities: HazardSeverity[] = ['Low', 'Medium', 'High', 'Critical'];
+const statuses: ReportStatus[] = ['Assigned', 'In Progress', 'Resolved', 'Rejected'];
+let reports: HazardReport[] | undefined;
+let writeQueue = Promise.resolve();
+
+app.use(express.json({ limit: '15mb' }));
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isBoundedString(value: unknown, maxLength: number): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
+}
+
+function hasOptionalString(
+  record: Record<string, unknown>,
+  key: string,
+  maxLength: number
+): boolean {
+  const value = record[key];
+  return value === undefined || (typeof value === 'string' && value.length <= maxLength);
+}
+
+function isTimeline(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.every(
+        (entry) =>
+          isRecord(entry) &&
+          isBoundedString(entry.stage, 120) &&
+          isBoundedString(entry.timestamp, 80) &&
+          typeof entry.done === 'boolean' &&
+          hasOptionalString(entry, 'note', 1000)
+      ))
+  );
+}
+
+function isHazardReport(value: unknown): value is HazardReport {
+  if (!isRecord(value)) return false;
+
+  return (
+    isBoundedString(value.id, 40) &&
+    isBoundedString(value.hazardType, 120) &&
+    isBoundedString(value.subType, 120) &&
+    isBoundedString(value.department, 120) &&
+    isBoundedString(value.location, 200) &&
+    isBoundedString(value.status, 30) &&
+    statuses.includes(value.status as ReportStatus) &&
+    isBoundedString(value.date, 50) &&
+    isBoundedString(value.severity, 20) &&
+    severities.includes(value.severity as HazardSeverity) &&
+    isBoundedString(value.description, 5000) &&
+    typeof value.photoUrl === 'string' &&
+    value.photoUrl.length > 0 &&
+    value.photoUrl.length <= 12_000_000 &&
+    hasOptionalString(value, 'departmentUnit', 120) &&
+    hasOptionalString(value, 'address', 300) &&
+    hasOptionalString(value, 'contact', 254) &&
+    hasOptionalString(value, 'assignedTeam', 120) &&
+    hasOptionalString(value, 'notes', 5000) &&
+    hasOptionalString(value, 'detectedAt', 80) &&
+    isTimeline(value.timeline)
+  );
+}
+
+function reportsStore(): HazardReport[] {
+  if (!reports) {
+    throw new Error('Report storage has not been initialized.');
+  }
+  return reports;
+}
+
+async function loadReports(): Promise<HazardReport[]> {
+  if (reports) return reports;
+
+  try {
+    const contents = await readFile(dataFile, 'utf8');
+    const parsed: unknown = JSON.parse(contents);
+    if (!Array.isArray(parsed) || !parsed.every(isHazardReport)) {
+      throw new Error(`Report data at ${dataFile} has an invalid format.`);
+    }
+    reports = parsed;
+  } catch (error) {
+    if (isRecord(error) && error.code === 'ENOENT') {
+      reports = [];
+      return reports;
+    }
+    throw error;
+  }
+
+  return reports;
+}
+
+async function persistReports(nextReports: HazardReport[]): Promise<void> {
+  await mkdir(path.dirname(dataFile), { recursive: true });
+  const temporaryFile = `${dataFile}.tmp`;
+  await writeFile(temporaryFile, `${JSON.stringify(nextReports, null, 2)}\n`, 'utf8');
+  await rename(temporaryFile, dataFile);
+  reports = nextReports;
+}
+
+function queueWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = writeQueue.then(operation);
+  writeQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+function makeReportId(existingReports: HazardReport[]): string {
+  let id: string;
+  do {
+    id = `#CF-${randomInt(10000, 100000)}`;
+  } while (existingReports.some((report) => report.id === id));
+  return id;
+}
+
+app.get('/api/health', (_request, response) => {
+  response.json({ status: 'ok' });
+});
+
+app.get('/api/reports', async (_request, response, next) => {
+  try {
+    response.json(await loadReports());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/reports/:id', async (request, response, next) => {
+  try {
+    const report = (await loadReports()).find((item) => item.id === request.params.id);
+    if (!report) {
+      response.status(404).json({ error: 'Report not found.' });
+      return;
+    }
+    response.json(report);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/reports/seed', async (request, response, next) => {
+  try {
+    if (!Array.isArray(request.body) || !request.body.every(isHazardReport)) {
+      response.status(400).json({ error: 'Seed data must be an array of valid reports.' });
+      return;
+    }
+
+    const storedReports = await queueWrite(async () => {
+      const existingReports = await loadReports();
+      if (existingReports.length === 0) {
+        await persistReports(request.body as HazardReport[]);
+      }
+      return reportsStore();
+    });
+    response.json(storedReports);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/reports', async (request, response, next) => {
+  try {
+    if (!isRecord(request.body) || !isHazardReport({ ...request.body, id: '#CF-00000' })) {
+      response.status(400).json({ error: 'Report is missing required or valid fields.' });
+      return;
+    }
+
+    const createdReport = await queueWrite(async () => {
+      const existingReports = await loadReports();
+      const report = {
+        ...request.body,
+        id: makeReportId(existingReports),
+      } as HazardReport;
+      const nextReports = [report, ...existingReports];
+      await persistReports(nextReports);
+      return report;
+    });
+    response.status(201).json(createdReport);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if (isRecord(error) && error.type === 'entity.parse.failed') {
+    response.status(400).json({ error: 'Request body must contain valid JSON.' });
+    return;
+  }
+  if (isRecord(error) && error.type === 'entity.too.large') {
+    response.status(413).json({ error: 'Request body exceeds the 15 MB limit.' });
+    return;
+  }
+  console.error('API request failed:', error);
+  response.status(500).json({ error: 'The reports service encountered an unexpected error.' });
+});
+
+app.listen(port, () => {
+  console.log(`CivicFix API listening on http://localhost:${port}`);
+});

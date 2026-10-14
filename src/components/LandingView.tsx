@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Sparkles, Truck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Camera, Sparkles, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
 import { WavyFooter } from './WavyFooter';
 import heroBg from '../assets/images/civicfix_hero_landscape_1791996007184.jpg';
 
@@ -41,7 +41,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
           {/* Subtitle */}
           <p className="text-sm sm:text-base text-slate-700 leading-relaxed max-w-lg mb-8 font-normal">
-            Snap a photo of a municipal hazard and our system will automatically detect, classify and route it to the right department.
+            Submit a report, review the suggested details, and track updates stored in CivicFix. This demo does not contact municipal departments.
           </p>
 
           {/* 4 Feature Circles Row */}
@@ -59,29 +59,29 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </span>
             </div>
 
-            {/* Step 2: AI Classifies */}
+            {/* Step 2: Review the demo suggestion */}
             <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
               <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
                 <Sparkles className="w-5 h-5 text-emerald-100" />
               </div>
               <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
-                AI Classifies
+                Review
               </span>
               <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
-                Detects the hazard, severity & location
+                Confirm the example hazard details
               </span>
             </div>
 
-            {/* Step 3: Auto-Dispatch */}
+            {/* Step 3: Submit a report */}
             <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
               <div className="w-12 h-12 rounded-full bg-[#234E35] text-white flex items-center justify-center mb-2.5 shadow-xs">
-                <Truck className="w-5 h-5 text-emerald-100" />
+                <FileText className="w-5 h-5 text-emerald-100" />
               </div>
               <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
-                Auto-Dispatch
+                Submit
               </span>
               <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
-                Sends to the right department
+                Saves your report to this demo
               </span>
             </div>
 
@@ -94,7 +94,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 Track
               </span>
               <span className="text-[11px] sm:text-xs text-slate-600 leading-tight mt-0.5">
-                See the status in real time
+                View saved report statuses
               </span>
             </div>
           </div>
