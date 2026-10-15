@@ -47,4 +47,4 @@ The UI only reaches the API through Vite's `/api` proxy -> `http://localhost:300
 - Enums are fixed: status = `Assigned | In Progress | Resolved | Rejected`, severity = `Low | Medium | High | Critical`. Server, client, and tests must stay in sync.
 - `vite.config.ts` disables HMR and file watching when `DISABLE_HMR=true` (AI Studio agent environment). Do not modify that block.
 - `@google/genai` in dependencies and `GEMINI_API_KEY`/`APP_URL` in `.env.example` are declared but unused — no Gemini/AI call exists in the code. Classification uses local presets in `src/data/mockReports.ts`.
-- No CI workflows, no pre-commit hooks, no git repo metadata in this checkout — nothing runs the checks for you; run them yourself before claiming work is done.
+- No CI workflows and no pre-commit hooks — nothing runs the checks for you; run lint/test/build yourself before claiming work is done. Commit with the existing history (`git log` style: short lowercase subjects like `backend`, `feat: ...`).
