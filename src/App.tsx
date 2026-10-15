@@ -177,6 +177,15 @@ export default function App() {
       case 6:
         setActiveView('dashboard');
         break;
+      case 7:
+        setActiveView('home');
+        break;
+      case 8:
+        setActiveView('ops');
+        break;
+      case 9:
+        setActiveView('worker');
+        break;
     }
   };
 
@@ -307,7 +316,7 @@ export default function App() {
   ]);
 
   return (
-    <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-14">
+    <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-28">
       {apiError && activeView !== 'dashboard' && (
         <div role="alert" className="bg-red-50 px-4 py-2 text-center text-sm text-red-800">
           Could not load reports from the backend: {apiError}{' '}
@@ -428,6 +437,42 @@ export default function App() {
               title="Screen 6: Dashboard My Reports"
             >
               6. Dashboard
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(7)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'home'
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 7: Live Queue Console"
+            >
+              7. Queue
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(8)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'ops'
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 8: Municipal Dashboard"
+            >
+              8. Ops
+            </button>
+
+            <button
+              onClick={() => jumpToScreen(9)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
+                activeView === 'worker'
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
+              }`}
+              title="Screen 9: Field Crew Console"
+            >
+              9. Crew
             </button>
           </div>
 

@@ -390,6 +390,25 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('ops')}
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-[#234E35]/30 bg-[#234E35]/5 px-3 py-2.5 text-xs font-bold text-[#1A4329] transition hover:bg-[#234E35]/12"
+        >
+          <Building2 className="h-4 w-4" />
+          Municipal dashboard
+        </button>
+        {role === 'staff' && (
+          <button
+            type="button"
+            onClick={() => onNavigate('worker')}
+            className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Field crew console
+          </button>
+        )}
       </div>
 
       {NAV_SECTIONS.map((section) => (
@@ -480,7 +499,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         <div className="space-y-3 border-t border-slate-200 pt-4">
           <RoleSwitcher role={role} onChange={onRoleChange} compact />
-          <div className="flex items-center gap-2.5 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+          <button
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+            title="Open my reports"
+            className="flex w-full items-center gap-2.5 rounded-xl bg-white p-2.5 text-left ring-1 ring-slate-200 transition hover:ring-slate-300"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#234E35] text-[11px] font-bold text-white">
               {currentUser.name
                 .split(' ')
@@ -488,13 +512,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 .join('')
                 .slice(0, 2)}
             </span>
-            <div className="min-w-0 leading-tight">
-              <p className="truncate text-xs font-bold text-slate-800">{currentUser.name}</p>
-              <p className="text-[10px] text-slate-500">
-                {role === 'staff' ? 'Care coordinator' : 'Resident'}
-              </p>
-            </div>
-          </div>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-xs font-bold text-slate-800">
+                {currentUser.name}
+              </span>
+              <span className="block text-[10px] text-slate-500">
+                {role === 'staff' ? 'Care coordinator' : 'Resident'} · My reports
+              </span>
+            </span>
+          </button>
         </div>
       </aside>
 
@@ -530,7 +556,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         {/* Small-screen nav strip */}
         <div className="flex gap-1.5 overflow-x-auto border-b border-slate-200/70 bg-[#F7F6F2] px-4 py-2 lg:hidden">
-          {[...NAV_SECTIONS.flatMap((section) => section.items)].map((item) => (
+          {[
+            ...NAV_SECTIONS.flatMap((section) => section.items),
+            { view: 'ops' as ActiveView, label: 'Municipal dashboard' },
+            ...(role === 'staff'
+              ? [{ view: 'worker' as ActiveView, label: 'Field crew' }]
+              : []),
+          ].map((item) => (
             <button
               key={item.view}
               type="button"
