@@ -221,8 +221,13 @@ export default function App() {
             role={role}
             currentUser={currentUser}
             onNavigate={(view) => setActiveView(view)}
+            onRoleChange={setRole}
             onStartReport={() => handleStartReport(1)}
             onOpenReport={openTicket}
+            selectedId={selectedReportId}
+            onSelectReport={setSelectedReportId}
+            onUpdateReportStatus={handleReportStatusUpdate}
+            onRefresh={reload}
           />
         );
       case 'map':
@@ -315,7 +320,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {activeView !== 'dashboard' && (
+      {activeView !== 'dashboard' && activeView !== 'home' && (
         <Navbar
           activeView={activeView}
           role={role}

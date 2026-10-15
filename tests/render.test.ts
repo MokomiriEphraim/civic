@@ -82,18 +82,23 @@ test('navigation and role chrome render for both roles', () => {
   render(createElement(RoleSwitcher, { role: 'staff' as UserRole, onChange: noop }), 'Municipal');
 });
 
-test('resident home dashboard renders stats, alerts and the priority feed', () => {
+test('resident home console renders the live queue, detail and dispatch cards', () => {
   render(
     createElement(HomeView, {
       reports: SEED_REPORTS,
       collections: collections(),
       role: 'resident' as UserRole,
       currentUser,
+      selectedId: SEED_REPORTS[0].id,
+      onSelectReport: noop,
+      onUpdateReportStatus: asyncNoop,
+      onRefresh: noop,
       onNavigate: noop,
+      onRoleChange: noop,
       onStartReport: noop,
       onOpenReport: noop,
     }),
-    'Needs attention'
+    'Live queue'
   );
 });
 

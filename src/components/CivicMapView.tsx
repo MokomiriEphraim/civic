@@ -4,6 +4,7 @@ import { HAZARD_SEVERITIES, REPORT_STATUSES } from '../types';
 import { parseCoordinates } from '../utils/proximity';
 import { reportPriority } from '../utils/priority';
 import { EmptyState, SectionHeading, SeverityBadge, StatusBadge } from './ui';
+import { MapCanvas, SEVERITY_FILL } from './MapCanvas';
 import { ChevronRight, MapPin, MapPinOff } from 'lucide-react';
 
 interface CivicMapViewProps {
@@ -11,67 +12,6 @@ interface CivicMapViewProps {
   selectedId: string | null;
   onSelectReport: (id: string) => void;
   onOpenTicket: (id: string) => void;
-}
-
-const MAP_W = 800;
-const MAP_H = 600;
-
-const SEVERITY_FILL: Record<HazardSeverity, string> = {
-  Low: '#64748b',
-  Medium: '#f59e0b',
-  High: '#f97316',
-  Critical: '#ef4444',
-};
-
-const SEVERITY_RADIUS: Record<HazardSeverity, number> = {
-  Low: 5,
-  Medium: 6,
-  High: 7,
-  Critical: 8,
-};
-
-interface MapPoint {
-  report: HazardReport;
-  x: number;
-  y: number;
-}
-
-function projectReports(reports: HazardReport[]): { points: MapPoint[]; unmapped: number } {
-  const included: { report: HazardReport; lat: number; lon: number }[] = [];
-  for (const report of reports) {
-    const coords = parseCoordinates(report.location);
-    if (coords) included.push({ report, lat: coords.lat, lon: coords.lon });
-  }
-  const unmapped = reports.length - included.length;
-  if (included.length === 0) return { points: [], unmapped };
-
-  let minLat = Math.min(...included.map((p) => p.lat));
-  let maxLat = Math.max(...included.map((p) => p.lat));
-  let minLon = Math.min(...included.map((p) => p.lon));
-  let maxLon = Math.max(...included.map((p) => p.lon));
-
-  if (maxLat - minLat < 0.0001) {
-    minLat -= 0.01;
-    maxLat += 0.01;
-  }
-  if (maxLon - minLon < 0.0001) {
-    minLon -= 0.01;
-    maxLon += 0.01;
-  }
-
-  const padLat = (maxLat - minLat) * 0.08;
-  const padLon = (maxLon - minLon) * 0.08;
-  minLat -= padLat;
-  maxLat += padLat;
-  minLon -= padLon;
-  maxLon += padLon;
-
-  const points = included.map(({ report, lat, lon }) => ({
-    report,
-    x: ((lon - minLon) / (maxLon - minLon)) * MAP_W,
-    y: (1 - (lat - minLat) / (maxLat - minLat)) * MAP_H,
-  }));
-  return { points, unmapped };
 }
 
 export const CivicMapView: React.FC<CivicMapViewProps> = ({
@@ -110,7 +50,10 @@ export const CivicMapView: React.FC<CivicMapViewProps> = ({
     [filtered]
   );
 
-  const { points, unmapped } = useMemo(() => projectReports(filtered), [filtered]);
+  const unmapped = useMemo(
+    () => filtered.filter((report) => parseCoordinates(report.location) === null).length,
+    [filtered]
+  );
 
   if (reports.length === 0) {
     return (
@@ -208,112 +151,12 @@ export const CivicMapView: React.FC<CivicMapViewProps> = ({
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-5">
-          <div className="relative aspect-[4/3] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs lg:col-span-3">
-            <svg
-              viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-              className="absolute inset-0 h-full w-full"
-              role="img"
-              aria-label="Map of reported hazards"
-            >
-              <rect x="0" y="0" width={MAP_W} height={MAP_H} fill="#EEF5EE" />
-              <rect x="60" y="50" width="220" height="150" rx="14" fill="#E1EBE2" />
-              <rect x="480" y="90" width="240" height="180" rx="14" fill="#E1EBE2" />
-              <rect x="90" y="330" width="200" height="170" rx="14" fill="#E4EEE6" />
-              <rect x="520" y="380" width="210" height="150" rx="14" fill="#E1EBE2" />
-              <path
-                d="M0 430 C 140 390, 260 500, 420 460 S 680 520, 800 470"
-                stroke="#BFDBFE"
-                strokeWidth="22"
-                fill="none"
-                strokeLinecap="round"
-                opacity="0.8"
-              />
-              <path
-                d="M0 240 H800"
-                stroke="#CBD5E1"
-                strokeWidth="4"
-                fill="none"
-                strokeLinecap="round"
-              />
-              <path
-                d="M300 0 V600"
-                stroke="#CBD5E1"
-                strokeWidth="4"
-                fill="none"
-                strokeLinecap="round"
-              />
-              <path
-                d="M0 90 C 200 130, 420 40, 800 120"
-                stroke="#D6DEE8"
-                strokeWidth="2.5"
-                fill="none"
-                strokeLinecap="round"
-              />
-              <path
-                d="M120 600 C 180 420, 520 360, 640 0"
-                stroke="#D6DEE8"
-                strokeWidth="2.5"
-                fill="none"
-                strokeLinecap="round"
-              />
-
-              {points.map((point) => {
-                const selected = point.report.id === selectedId;
-                return (
-                  <g key={point.report.id}>
-                    {selected && (
-                      <circle
-                        cx={point.x}
-                        cy={point.y}
-                        r={SEVERITY_RADIUS[point.report.severity] + 5}
-                        fill="none"
-                        stroke="#0f172a"
-                        strokeWidth="2"
-                        opacity="0.65"
-                      >
-                        <animate
-                          attributeName="r"
-                          values={`${SEVERITY_RADIUS[point.report.severity] + 5};${SEVERITY_RADIUS[point.report.severity] + 13};${SEVERITY_RADIUS[point.report.severity] + 5}`}
-                          dur="1.8s"
-                          repeatCount="indefinite"
-                        />
-                        <animate
-                          attributeName="opacity"
-                          values="0.65;0;0.65"
-                          dur="1.8s"
-                          repeatCount="indefinite"
-                        />
-                      </circle>
-                    )}
-                    {selected && (
-                      <circle
-                        cx={point.x}
-                        cy={point.y}
-                        r={SEVERITY_RADIUS[point.report.severity] + 3}
-                        fill="none"
-                        stroke="#0f172a"
-                        strokeWidth="2.5"
-                      />
-                    )}
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={SEVERITY_RADIUS[point.report.severity]}
-                      fill={SEVERITY_FILL[point.report.severity]}
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
-                      className="cursor-pointer"
-                      onClick={() => onSelectReport(point.report.id)}
-                    >
-                      <title>
-                        {`${point.report.id} · ${point.report.subType} · ${point.report.location}`}
-                      </title>
-                    </circle>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
+          <MapCanvas
+            reports={filtered}
+            selectedId={selectedId}
+            onSelectReport={onSelectReport}
+            className="aspect-[4/3] min-h-[420px] rounded-2xl border border-slate-200/80 shadow-xs"
+          />
 
           <div className="lg:col-span-2">
             <SectionHeading

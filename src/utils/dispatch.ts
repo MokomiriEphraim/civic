@@ -7,7 +7,7 @@ export interface DispatchResult {
   reason: string;
 }
 
-function servesDepartment(team: FieldTeam, department: string): boolean {
+export function servesDepartment(team: FieldTeam, department: string): boolean {
   const wanted = department.trim().toLocaleLowerCase();
   if (wanted.length === 0) return false;
   return team.departments.some((entry) => {
