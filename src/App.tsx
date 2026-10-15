@@ -3,30 +3,70 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
-import { ActiveView, StepNumber, HazardReport } from './types';
-import {
-  getReports,
-  updateReportStatus,
-} from './api/reports';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActiveView, StepNumber, HazardReport, UserRole } from './types';
+import { getReports, updateReportStatus } from './api/reports';
+import { loadCollections, type CivicCollections } from './api/collections';
 import { Navbar } from './components/Navbar';
 import { LandingView } from './components/LandingView';
 import { ReportWizard } from './components/ReportWizard';
 import { DashboardView } from './components/DashboardView';
+import { HomeView } from './components/HomeView';
+import { CivicMapView } from './components/CivicMapView';
+import { TransparencyView } from './components/TransparencyView';
+import { TicketView } from './components/TicketView';
+import { CommunityView } from './components/CommunityView';
+import { BulletinsView } from './components/BulletinsView';
+import { DiscoverView } from './components/DiscoverView';
+import { OpsView } from './components/OpsView';
+import { WorkerView } from './components/WorkerView';
+import { AssistantDock } from './components/AssistantDock';
 import { Eye, Layers } from 'lucide-react';
+
+const EMPTY_COLLECTIONS: CivicCollections = {
+  alerts: [],
+  announcements: [],
+  discussions: [],
+  polls: [],
+  events: [],
+  documents: [],
+  projects: [],
+};
+
+const USERS: Record<UserRole, { name: string; email: string }> = {
+  resident: { name: 'Demo Citizen', email: 'demo@example.com' },
+  staff: { name: 'Municipal Officer', email: 'ops@capetown.gov.za' },
+};
+
+function readStoredRole(): UserRole {
+  try {
+    return window.localStorage.getItem('civic-role') === 'staff' ? 'staff' : 'resident';
+  } catch {
+    return 'resident';
+  }
+}
 
 export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>('landing');
   const [wizardStep, setWizardStep] = useState<StepNumber>(1);
   const [reports, setReports] = useState<HazardReport[]>([]);
+  const [collections, setCollections] = useState<CivicCollections>(EMPTY_COLLECTIONS);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
-  const [currentUser] = useState({
-    name: 'Demo Citizen',
-    email: 'demo@example.com',
-  });
+  const [role, setRole] = useState<UserRole>(readStoredRole);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [showScreenSwitcher, setShowScreenSwitcher] = useState(import.meta.env.DEV);
+
+  const currentUser = USERS[role];
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('civic-role', role);
+    } catch {
+      // Storage may be unavailable; the role still works for this session.
+    }
+  }, [role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +78,11 @@ export default function App() {
         const loadedReports = await getReports();
         if (!cancelled) {
           setReports(loadedReports);
+          setSelectedReportId((current) =>
+            current && loadedReports.some((report) => report.id === current)
+              ? current
+              : loadedReports[0]?.id ?? null
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -58,18 +103,33 @@ export default function App() {
     };
   }, [reloadToken]);
 
-  // Switch to report wizard at specific step
+  useEffect(() => {
+    let cancelled = false;
+    void loadCollections()
+      .then((loaded) => {
+        if (!cancelled) setCollections(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setCollections(EMPTY_COLLECTIONS);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
+
+  const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+
   const handleStartReport = (step: StepNumber = 1) => {
     setWizardStep(step);
     setActiveView('report');
   };
 
-  // When a report is submitted in wizard
   const handleReportFinish = (newReport: HazardReport) => {
     setReports((prev) => [
       newReport,
       ...prev.filter((report) => report.id !== newReport.id),
     ]);
+    setSelectedReportId(newReport.id);
   };
 
   const handleReportStatusUpdate = async (
@@ -88,33 +148,156 @@ export default function App() {
     return updatedReport;
   };
 
-  // Jump directly to any of the 6 screens shown in the mockup
+  const openTicket = useCallback((id: string) => {
+    setSelectedReportId(id);
+    setActiveView('ticket');
+  }, []);
+
   const jumpToScreen = (screenIndex: number) => {
     switch (screenIndex) {
-      case 1: // Landing
+      case 1:
         setActiveView('landing');
         break;
-      case 2: // Step 1: Photo
+      case 2:
         setWizardStep(1);
         setActiveView('report');
         break;
-      case 3: // Step 2: Review (We've analysed your photo)
+      case 3:
         setWizardStep(2);
         setActiveView('report');
         break;
-      case 4: // Step 3: Details (Additional Information)
+      case 4:
         setWizardStep(3);
         setActiveView('report');
         break;
-      case 5: // Step 4: Submit (Report Submitted!)
+      case 5:
         setWizardStep(4);
         setActiveView('report');
         break;
-      case 6: // Dashboard (My Reports)
+      case 6:
         setActiveView('dashboard');
         break;
     }
   };
+
+  const viewNode = useMemo(() => {
+    switch (activeView) {
+      case 'landing':
+        return (
+          <LandingView
+            onStartReport={() => handleStartReport(1)}
+            onTrackReport={() => setActiveView('dashboard')}
+          />
+        );
+      case 'report':
+        return (
+          <ReportWizard
+            initialStep={wizardStep}
+            onCancel={() => setActiveView('landing')}
+            onFinish={handleReportFinish}
+            onViewReports={() => setActiveView('dashboard')}
+          />
+        );
+      case 'dashboard':
+        return (
+          <DashboardView
+            reports={reports}
+            onStartReport={() => handleStartReport(1)}
+            onGoHome={() => setActiveView('home')}
+            onUpdateReportStatus={handleReportStatusUpdate}
+            isLoading={isLoadingReports}
+            loadError={apiError}
+            onRetryLoad={reload}
+            currentUser={currentUser}
+          />
+        );
+      case 'home':
+        return (
+          <HomeView
+            reports={reports}
+            collections={collections}
+            role={role}
+            currentUser={currentUser}
+            onNavigate={(view) => setActiveView(view)}
+            onStartReport={() => handleStartReport(1)}
+            onOpenReport={openTicket}
+          />
+        );
+      case 'map':
+        return (
+          <CivicMapView
+            reports={reports}
+            selectedId={selectedReportId}
+            onSelectReport={setSelectedReportId}
+            onOpenTicket={openTicket}
+          />
+        );
+      case 'transparency':
+        return <TransparencyView reports={reports} />;
+      case 'ticket':
+        return (
+          <TicketView
+            reports={reports}
+            selectedId={selectedReportId}
+            onSelectTicket={setSelectedReportId}
+            onUpdateReportStatus={handleReportStatusUpdate}
+            onRefreshReports={reload}
+            role={role}
+            currentUser={currentUser}
+          />
+        );
+      case 'community':
+        return (
+          <CommunityView
+            discussions={collections.discussions}
+            events={collections.events}
+            onRefresh={reload}
+            onNavigate={(view) => setActiveView(view)}
+          />
+        );
+      case 'bulletins':
+        return (
+          <BulletinsView
+            alerts={collections.alerts}
+            announcements={collections.announcements}
+            onRefresh={reload}
+          />
+        );
+      case 'discover':
+        return (
+          <DiscoverView
+            projects={collections.projects}
+            polls={collections.polls}
+            documents={collections.documents}
+            onRefresh={reload}
+          />
+        );
+      case 'ops':
+        return (
+          <OpsView
+            reports={reports}
+            onUpdateReportStatus={handleReportStatusUpdate}
+            onRefresh={reload}
+          />
+        );
+      case 'worker':
+        return (
+          <WorkerView reports={reports} onUpdateReportStatus={handleReportStatusUpdate} />
+        );
+    }
+  }, [
+    activeView,
+    wizardStep,
+    reports,
+    collections,
+    role,
+    currentUser,
+    selectedReportId,
+    isLoadingReports,
+    apiError,
+    reload,
+    openTicket,
+  ]);
 
   return (
     <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-14">
@@ -123,18 +306,19 @@ export default function App() {
           Could not load reports from the backend: {apiError}{' '}
           <button
             type="button"
-            onClick={() => setReloadToken((token) => token + 1)}
+            onClick={reload}
             className="font-semibold underline underline-offset-2"
           >
             Retry
           </button>
         </div>
       )}
-      {/* Top Navbar (hidden on dashboard since dashboard has its own sidebar layout) */}
       {activeView !== 'dashboard' && (
         <Navbar
           activeView={activeView}
+          role={role}
           onNavigate={(view) => setActiveView(view)}
+          onRoleChange={setRole}
           onStartReport={() => handleStartReport(1)}
           user={currentUser}
           onToggleUser={() => setActiveView('dashboard')}
@@ -142,41 +326,20 @@ export default function App() {
         />
       )}
 
-      {/* Main View Router */}
-      <main className="flex-1 flex flex-col">
-        {activeView === 'landing' && (
-          <LandingView
-            onStartReport={() => handleStartReport(1)}
-            onTrackReport={() => setActiveView('dashboard')}
-          />
-        )}
+      <main className="flex-1 flex flex-col">{viewNode}</main>
 
-        {activeView === 'report' && (
-          <ReportWizard
-            initialStep={wizardStep}
-            onCancel={() => setActiveView('landing')}
-            onFinish={handleReportFinish}
-            onViewReports={() => setActiveView('dashboard')}
-          />
-        )}
+      {activeView !== 'report' && (
+        <AssistantDock
+          reports={reports}
+          alerts={collections.alerts}
+          announcements={collections.announcements}
+          discussions={collections.discussions}
+          onNavigate={(view) => setActiveView(view)}
+          onStartReport={() => handleStartReport(1)}
+          onOpenReport={openTicket}
+        />
+      )}
 
-        {activeView === 'dashboard' && (
-          <DashboardView
-            reports={reports}
-            onStartReport={() => handleStartReport(1)}
-            onGoHome={() => setActiveView('landing')}
-            onUpdateReportStatus={handleReportStatusUpdate}
-            isLoading={isLoadingReports}
-            loadError={apiError}
-            onRetryLoad={() => setReloadToken((token) => token + 1)}
-            currentUser={currentUser}
-          />
-        )}
-      </main>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Floating Mockup Screen Navigator (matches all 6 screens in image) */}
-      {/* ----------------------------------------------------------------- */}
       {import.meta.env.DEV && showScreenSwitcher && (
         <aside
           aria-label="Screen navigator"
@@ -271,7 +434,6 @@ export default function App() {
         </aside>
       )}
 
-      {/* Floating button to restore switcher if closed */}
       {import.meta.env.DEV && !showScreenSwitcher && (
         <button
           onClick={() => setShowScreenSwitcher(true)}
