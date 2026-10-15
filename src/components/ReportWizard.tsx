@@ -17,9 +17,11 @@ import {
 import { StepNumber, HazardReport } from '../types';
 import { HAZARD_PRESETS } from '../data/mockReports';
 import { createReport } from '../api/reports';
+import { POTHOLE_IMAGE } from '../data/images';
 import { WavyFooter } from './WavyFooter';
 import { MapModal } from './MapModal';
-import potholeImg from '../assets/images/pothole_road_hazard_1791996006345.jpg';
+
+const potholeImg = POTHOLE_IMAGE;
 
 interface ReportWizardProps {
   onCancel: () => void;

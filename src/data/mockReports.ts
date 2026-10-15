@@ -1,5 +1,7 @@
 import { HazardReport } from '../types';
-import potholeImg from '../assets/images/pothole_road_hazard_1791996006345.jpg';
+import { POTHOLE_IMAGE } from './images';
+
+const potholeImg = POTHOLE_IMAGE;
 
 export const INITIAL_REPORTS: HazardReport[] = [
   {

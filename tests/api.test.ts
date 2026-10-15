@@ -1,95 +1,17 @@
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import type { HazardReport, ReportStatus } from '../src/types';
+import {
+  createTemporaryDirectory,
+  jsonRequest,
+  startApi,
+  type RunningApi,
+} from './helpers';
 
-interface RunningApi {
-  baseUrl: string;
-  stop: () => Promise<void>;
-}
-
-async function startApi(dataFile: string): Promise<RunningApi> {
-  const child: ChildProcess = spawn(
-    process.execPath,
-    ['--import', 'tsx', 'server/index.ts'],
-    {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        API_PORT: '0',
-        REPORTS_FILE: dataFile,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }
-  );
-
-  let output = '';
-  let baseUrl: string | undefined;
-  const ready = new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`API did not start. ${output}`)), 10_000);
-    child.stdout?.setEncoding('utf8');
-    child.stdout?.on('data', (chunk: string) => {
-      output += chunk;
-      const match = output.match(/listening on http:\/\/localhost:(\d+)/);
-      if (match && !baseUrl) {
-        baseUrl = `http://localhost:${match[1]}`;
-        clearTimeout(timeout);
-        resolve();
-      }
-    });
-    child.stderr?.setEncoding('utf8');
-    child.stderr?.on('data', (chunk: string) => {
-      output += chunk;
-    });
-    child.once('exit', (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`API exited before becoming ready (${code}). ${output}`));
-    });
-    child.once('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-  });
-
-  try {
-    await ready;
-  } catch (error) {
-    child.kill();
-    throw error;
-  }
-  if (!baseUrl) {
-    child.kill();
-    throw new Error(`API did not report a listening port. ${output}`);
-  }
-  return {
-    baseUrl,
-    stop: async () => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
-      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
-      child.kill();
-      await Promise.race([
-        exited,
-        delay(3_000).then(() => {
-          throw new Error(`API did not stop cleanly. ${output}`);
-        }),
-      ]);
-    },
-  };
-}
-
-async function jsonRequest<T>(
-  api: RunningApi,
-  route: string,
-  init?: RequestInit
-): Promise<{ response: Response; body: T }> {
-  const response = await fetch(`${api.baseUrl}${route}`, init);
-  const body = (await response.json()) as T;
-  return { response, body };
-}
+// This suite asserts empty-store behaviour, so keep demo seeding off.
+const noSeed = { env: { CIVIC_SEED: '0' } };
 
 function newReport(overrides: Partial<HazardReport> = {}) {
   return {
@@ -107,17 +29,13 @@ function newReport(overrides: Partial<HazardReport> = {}) {
   };
 }
 
-async function createTemporaryDirectory(): Promise<string> {
-  return mkdtemp(path.join(tmpdir(), 'civicfix-api-test-'));
-}
-
 test('report API validates, persists updates, serializes writes, and reloads stored data', async () => {
   const directory = await createTemporaryDirectory();
   const dataFile = path.join(directory, 'reports.json');
   let api: RunningApi | undefined;
 
   try {
-    api = await startApi(dataFile);
+    api = await startApi(dataFile, noSeed);
     const health = await jsonRequest<{ status: string }>(api, '/api/health');
     assert.equal(health.response.status, 200);
     assert.deepEqual(health.body, { status: 'ok' });
@@ -243,7 +161,7 @@ test('report API validates, persists updates, serializes writes, and reloads sto
     assert.ok(writeFlood.some((response) => response.status === 429));
 
     await api.stop();
-    api = await startApi(dataFile);
+    api = await startApi(dataFile, noSeed);
     const persisted = await jsonRequest<HazardReport[]>(api, '/api/reports');
     assert.equal(persisted.body.find((report) => report.id === first.body.id)?.status, 'Resolved');
     assert.equal(persisted.body.find((report) => report.id === second.body.id)?.status, 'Rejected');
@@ -264,7 +182,7 @@ test('invalid stored JSON returns a safe error and leaves the file unchanged', a
   let api: RunningApi | undefined;
 
   try {
-    api = await startApi(dataFile);
+    api = await startApi(dataFile, noSeed);
     const result = await fetch(`${api.baseUrl}/api/reports`);
     assert.equal(result.status, 500);
     const errorBody = await result.json() as { error: string };
@@ -285,7 +203,7 @@ test('storage failures return 500 without exposing server details', async () => 
   let api: RunningApi | undefined;
 
   try {
-    api = await startApi(dataFile);
+    api = await startApi(dataFile, noSeed);
     const result = await jsonRequest<{ error: string }>(api, '/api/reports');
     assert.equal(result.response.status, 500);
     assert.equal(result.body.error, 'The reports service encountered an unexpected error.');

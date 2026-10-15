@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-label="After photo: repaired road surface">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfe3ef"/>
+      <stop offset="100%" stop-color="#eef4f7"/>
+    </linearGradient>
+    <linearGradient id="tar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3d4147"/>
+      <stop offset="55%" stop-color="#2f3338"/>
+      <stop offset="100%" stop-color="#26292d"/>
+    </linearGradient>
+    <linearGradient id="patch" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1d1f22"/>
+      <stop offset="100%" stop-color="#15171a"/>
+    </linearGradient>
+    <pattern id="grit" width="6" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="0.7" fill="#ffffff" opacity="0.06"/>
+      <circle cx="4.5" cy="4" r="0.5" fill="#000000" opacity="0.18"/>
+    </pattern>
+  </defs>
+
+  <rect width="900" height="560" fill="url(#sky)"/>
+  <rect y="150" width="900" height="60" fill="#9aa6ad"/>
+  <rect y="196" width="900" height="14" fill="#e8edf0"/>
+  <g fill="#7d8a92">
+    <rect x="40" y="96" width="120" height="110" rx="3"/>
+    <rect x="180" y="70" width="90" height="136" rx="3"/>
+    <rect x="700" y="84" width="150" height="122" rx="3"/>
+    <rect x="620" y="118" width="64" height="88" rx="3"/>
+  </g>
+  <g fill="#8f9ba3" opacity="0.55">
+    <rect x="52" y="112" width="18" height="22"/>
+    <rect x="80" y="112" width="18" height="22"/>
+    <rect x="108" y="112" width="18" height="22"/>
+    <rect x="80" y="146" width="18" height="22"/>
+    <rect x="196" y="90" width="16" height="20"/>
+    <rect x="222" y="90" width="16" height="20"/>
+    <rect x="196" y="124" width="16" height="20"/>
+    <rect x="720" y="104" width="20" height="24"/>
+    <rect x="750" y="104" width="20" height="24"/>
+    <rect x="780" y="104" width="20" height="24"/>
+    <rect x="735" y="140" width="20" height="24"/>
+  </g>
+
+  <rect y="210" width="900" height="350" fill="url(#tar)"/>
+  <rect y="210" width="900" height="350" fill="url(#grit)"/>
+
+  <g stroke="#f4f6f7" stroke-width="7" stroke-dasharray="54 40" opacity="0.9">
+    <line x1="0" y1="300" x2="900" y2="300"/>
+  </g>
+  <g stroke="#f4f6f7" stroke-width="6" opacity="0.85">
+    <line x1="0" y1="470" x2="900" y2="470"/>
+    <line x1="0" y1="228" x2="900" y2="228"/>
+  </g>
+
+  <g>
+    <rect x="286" y="330" width="330" height="140" rx="6" fill="url(#patch)" stroke="#4d5257" stroke-width="3"/>
+    <rect x="300" y="344" width="302" height="112" rx="4" fill="none" stroke="#6b7176" stroke-width="1.5" stroke-dasharray="10 8" opacity="0.7"/>
+    <rect x="286" y="330" width="330" height="140" rx="6" fill="url(#grit)" opacity="0.8"/>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif">
+    <rect x="28" y="28" width="216" height="74" rx="12" fill="#234E35" opacity="0.94"/>
+    <text x="48" y="60" font-size="18" font-weight="bold" fill="#8ff0b3" letter-spacing="3">AFTER</text>
+    <text x="48" y="86" font-size="15" fill="#e9f6ee">Road surface repaired</text>
+
+    <rect x="612" y="454" width="260" height="78" rx="12" fill="#0f1114" opacity="0.86"/>
+    <text x="632" y="484" font-size="15" fill="#ffffff" font-weight="bold">Repaired 14 Oct 2026</text>
+    <text x="632" y="510" font-size="14" fill="#9fe6bc">Roads Crew Delta 4 · verified</text>
+
+    <rect x="28" y="454" width="234" height="60" rx="12" fill="#0f1114" opacity="0.72"/>
+    <text x="48" y="482" font-size="15" fill="#ffffff" font-weight="bold">Evidence upload</text>
+    <text x="48" y="504" font-size="13" fill="#b9c2c8">CivicFix proof of resolution</text>
+  </g>
+</svg>
