@@ -31,9 +31,14 @@ The UI only reaches the API through Vite's `/api` proxy -> `http://localhost:300
 
 ## Architecture
 
-- `server/index.ts` is the entire API: validation, rate limiting, JSON persistence, error handling. No routes directory, no DB layer.
-- `src/types.ts` (`HazardReport`, `ReportStatus`, `HazardSeverity`) is shared by server and client — the server's `isHazardReport` validator is the source of truth for the shape; the client does not re-validate.
-- `src/api/reports.ts` is the only HTTP client layer; report state, API error, and reload logic live in `src/App.tsx`. Route "navigation" is `activeView` state, not a router library.
+- `server/index.ts` is the HTTP surface (rate limiting, validation, error handling) over three modules: `server/validation.ts` (`isHazardReport`, `validateShape`/`Shape`), `server/store.ts` (`JsonStore` — cached JSON file, in-process write queue, atomic rename), `server/collections.ts` (collection configs + `createStores` + `/api/c` router). No DB layer.
+- Report API: `GET/POST /api/reports`, `GET /api/reports/:id`, `PATCH .../status` (applies `applyStatusToTimeline`), `POST /api/reports/detect-duplicates`, and per-ticket `GET/POST .../engagement|confirm`, `GET/PUT/PATCH .../resolution`, `GET/POST .../rating`, `GET/POST .../messages`. POST create runs `dispatchTeam` and appends an `Auto-dispatched` timeline stage.
+- Collections API: `GET/POST /api/c/:name`, `PATCH/DELETE /api/c/:name/:id` for `alerts, announcements, discussions, polls, events, documents, projects` plus ticket-keyed `threads, engagements, resolutions, ratings` (those four use the ticket id as their record id; their `id` must be supplied on POST). Static bundled photos are served at `/api/assets/<file>` from `src/assets/images/`.
+- Seeding: when `data/reports.json` is missing, reports are seeded from `src/data/seedReports.ts` (`SEED_REPORTS`); each collection file under `data/collections/` is seeded when missing from `src/data/seed.ts` / `src/data/seedReports.ts`. `CIVIC_SEED=0|false|no|off` disables all seeding — `tests/api.test.ts` sets it, the other API suites rely on seeding.
+- `src/types.ts` is shared by server and client: all domain types, plus runtime arrays `REPORT_STATUSES`, `OPEN_STATUSES`, `HAZARD_SEVERITIES`, `ALERT_CATEGORIES`, `COMMUNITY_CATEGORIES`. The server's `isHazardReport`/`validateShape` are the source of truth for shapes; the client does not re-validate.
+- HTTP clients: `src/api/request.ts` (shared fetch wrapper that throws `Error(server.error)`), `src/api/reports.ts` (reports + ticket extras), `src/api/collections.ts` (collection CRUD + `loadCollections()`).
+- Pure logic lives in `src/utils/` (`dates`, `proximity`, `duplicate`, `priority`, `dispatch` + `src/data/teams.ts`, `stats`, `ai`, `assistant`, `timeline`) — deterministic, unit-tested in `tests/utils.test.ts`.
+- UI: `src/App.tsx` owns report state, collections, the `role` demo switcher (`UserRole`, persisted in localStorage) and view routing (`activeView` state, no router). Each screen is one component in `src/components/` (`HomeView`, `CivicMapView`, `TransparencyView`, `TicketView`, `CommunityView`, `BulletinsView`, `DiscoverView`, `OpsView`, `WorkerView`, plus `DashboardView`, `ReportWizard`, `LandingView`); shared badges/cards in `src/components/ui.tsx`; `AssistantDock` is the floating local assistant.
 - Path alias `@/` = repo root (configured in both `vite.config.ts` and `tsconfig.json`).
 - `tsconfig.json` has no `include`/`exclude`, so `npm run lint` typechecks `src/`, `server/`, and `tests/`.
 
@@ -41,10 +46,12 @@ The UI only reaches the API through Vite's `/api` proxy -> `http://localhost:300
 
 - `*.ts.backup` / `*.tsx.backup` files sit next to real sources: stale, differ from current code, and are invisible to tsc/Vite. Never edit or copy from them; the `.ts`/`.tsx` file is the only source of truth.
 - `data/reports.json` (gitignored) is created lazily on first write. The server caches reports in memory and serializes writes in-process (atomic temp-file + rename). Corrupt or invalid stored JSON returns 500 and is **not** reseeded automatically — don't "fix" it by deleting the file; that silently discards user data.
-- Rate limit: 30 write requests (POST/PATCH) per client IP per minute per server process -> 429. It's in-memory only, so restarts reset it; `tests/api.test.ts` deliberately trips it, and a burst of UI status changes can too.
+- Rate limit: 30 write requests (POST/PATCH/PUT/DELETE) per client IP per minute per server process -> 429. It's in-memory only, so restarts reset it; `tests/api.test.ts` deliberately trips it, and a burst of UI status changes can too.
+- `data/collections/*.json` is gitignored like `data/reports.json`; runtime demo content (votes, comments, confirmations) persists there locally.
+- API tests spawn `server/index.ts` via `tests/helpers.ts` (`startApi`), on ephemeral ports with a temp `REPORTS_FILE`. Only `tests/api.test.ts` opts out of seeding; the collections/report-extras suites assert against seed data, so editing `src/data/seed*.ts` may require updating `tests/collections.test.ts` / `tests/reportExtras.test.ts`.
 - Photos are base64 data URLs inside the report JSON (~14.5 MB cap per photo, 15 MB body limit -> 413). Not object storage.
 - Report IDs (`#CF-#####`) are assigned server-side on POST; never generate them client-side.
-- Enums are fixed: status = `Assigned | In Progress | Resolved | Rejected`, severity = `Low | Medium | High | Critical`. Server, client, and tests must stay in sync.
+- Enums are fixed: status = `Received | Verified | Assigned | In Progress | Resolved | Rejected` (use `REPORT_STATUSES`/`OPEN_STATUSES`, don't hardcode lists), severity = `Low | Medium | High | Critical`. Server, client, seeds, and tests must stay in sync.
 - `vite.config.ts` disables HMR and file watching when `DISABLE_HMR=true` (AI Studio agent environment). Do not modify that block.
 - `@google/genai` in dependencies and `GEMINI_API_KEY`/`APP_URL` in `.env.example` are declared but unused — no Gemini/AI call exists in the code. Classification uses local presets in `src/data/mockReports.ts`.
 - No CI workflows and no pre-commit hooks — nothing runs the checks for you; run lint/test/build yourself before claiming work is done. Commit with the existing history (`git log` style: short lowercase subjects like `backend`, `feat: ...`).
