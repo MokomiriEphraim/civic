@@ -13,7 +13,7 @@ import {
   SEED_PROJECTS,
 } from '../src/data/seed';
 import { SEED_REPORTS } from '../src/data/seedReports';
-import type { ActiveView, HazardReport, ReportStatus, UserRole } from '../src/types';
+import type { ActiveView, HazardReport, ReportStatus, StepNumber, UserRole } from '../src/types';
 import { AssistantDock } from '../src/components/AssistantDock';
 import { BulletinsView } from '../src/components/BulletinsView';
 import { CivicMapView } from '../src/components/CivicMapView';
@@ -22,6 +22,7 @@ import { DiscoverView } from '../src/components/DiscoverView';
 import { HomeView } from '../src/components/HomeView';
 import { Navbar } from '../src/components/Navbar';
 import { OpsView } from '../src/components/OpsView';
+import { ReportWizard } from '../src/components/ReportWizard';
 import { RoleSwitcher } from '../src/components/RoleSwitcher';
 import { TicketView } from '../src/components/TicketView';
 import { TransparencyView } from '../src/components/TransparencyView';
@@ -131,6 +132,42 @@ test('map, ticket, transparency and assistant views render seed data', () => {
       onStartReport: noop,
       onOpenReport: noop,
     })
+  );
+});
+
+test('report wizard renders the photo, details and confirmation steps', () => {
+  render(
+    createElement(ReportWizard, {
+      onCancel: noop,
+      onFinish: noop,
+      onViewReports: noop,
+      onOpenTicket: noop,
+      residentName: 'Demo Citizen',
+      initialStep: 1 as StepNumber,
+    }),
+    'Photo'
+  );
+  render(
+    createElement(ReportWizard, {
+      onCancel: noop,
+      onFinish: noop,
+      onViewReports: noop,
+      onOpenTicket: noop,
+      residentName: 'Demo Citizen',
+      initialStep: 3 as StepNumber,
+    }),
+    'Predicted priority'
+  );
+  render(
+    createElement(ReportWizard, {
+      onCancel: noop,
+      onFinish: noop,
+      onViewReports: noop,
+      onOpenTicket: noop,
+      residentName: 'Demo Citizen',
+      initialStep: 4 as StepNumber,
+    }),
+    'Ticket number pending'
   );
 });
 

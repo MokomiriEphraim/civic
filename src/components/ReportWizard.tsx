@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Camera,
   Upload,
@@ -11,15 +11,21 @@ import {
   Building2,
   Calendar,
   AlertTriangle,
+  CopyCheck,
   Sparkles,
+  Truck,
+  Users,
   Maximize2
 } from 'lucide-react';
-import { StepNumber, HazardReport } from '../types';
+import { DuplicateMatch, StepNumber, HazardReport } from '../types';
 import { HAZARD_PRESETS } from '../data/mockReports';
-import { createReport } from '../api/reports';
+import { confirmIssue, createReport, detectDuplicates } from '../api/reports';
 import { POTHOLE_IMAGE } from '../data/images';
+import { dispatchTeam } from '../utils/dispatch';
+import { priorityScore } from '../utils/priority';
 import { WavyFooter } from './WavyFooter';
 import { MapModal } from './MapModal';
+import { BandBadge } from './ui';
 
 const potholeImg = POTHOLE_IMAGE;
 
@@ -27,6 +33,8 @@ interface ReportWizardProps {
   onCancel: () => void;
   onFinish: (report: HazardReport) => void;
   onViewReports: () => void;
+  onOpenTicket?: (id: string) => void;
+  residentName?: string;
   initialStep?: StepNumber;
 }
 
@@ -34,6 +42,8 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   onCancel,
   onFinish,
   onViewReports,
+  onOpenTicket,
+  residentName = 'Demo Citizen',
   initialStep = 1,
 }) => {
   const [currentStep, setCurrentStep] = useState<StepNumber>(initialStep);
@@ -65,12 +75,75 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
   // Submitted ticket info
   const [generatedTicketId, setGeneratedTicketId] = useState<string | null>(null);
+  const [assignedCrew, setAssignedCrew] = useState<string | null>(null);
   const [reportSaved, setReportSaved] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionLock = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Duplicate detection (runs when the details step opens).
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
+  const [duplicateRadius, setDuplicateRadius] = useState(250);
+  const [duplicatesLoading, setDuplicatesLoading] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
+  const [confirmedTicketId, setConfirmedTicketId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentStep !== 3) return;
+    let cancelled = false;
+    setDuplicatesLoading(true);
+    setDuplicateError(null);
+    detectDuplicates({
+      subType: hazardSpecific,
+      hazardType: hazardCategory,
+      location: coordinates,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setDuplicateMatches(result.matches);
+        setDuplicateRadius(result.radiusMetres);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setDuplicateError(
+          error instanceof Error ? error.message : 'Could not check for similar reports.'
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setDuplicatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep, hazardSpecific, hazardCategory, coordinates]);
+
+  const handleConfirmDuplicate = async (id: string) => {
+    setConfirmingId(id);
+    setDuplicateError(null);
+    try {
+      await confirmIssue(id, residentName);
+      setConfirmedTicketId(id);
+    } catch (error) {
+      setDuplicateError(
+        error instanceof Error ? error.message : 'Your confirmation could not be saved.'
+      );
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const draftPriority = priorityScore({
+    severity,
+    status: 'Received',
+    department,
+    affected: 0,
+    date: noticedDate,
+  });
+  const crewPreview = dispatchTeam(department, coordinates);
 
   const processPhotoFile = (file: File | undefined) => {
     if (!file) return;
@@ -173,6 +246,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
     try {
       const savedReport = await createReport(report);
       setGeneratedTicketId(savedReport.id);
+      setAssignedCrew(savedReport.assignedTeam ?? null);
       setReportSaved(true);
       onFinish(savedReport);
       setCurrentStep(4);
@@ -193,6 +267,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
     setUserNotes('');
     setContact('');
     setGeneratedTicketId(null);
+    setAssignedCrew(null);
     setReportSaved(false);
   };
 
@@ -645,6 +720,118 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   {submissionError}
                 </p>
               )}
+
+              {/* Similar open tickets nearby */}
+              {duplicatesLoading && (
+                <p className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">
+                  Checking nearby open tickets…
+                </p>
+              )}
+              {!duplicatesLoading && duplicateError && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                  {duplicateError}
+                </p>
+              )}
+              {!duplicatesLoading &&
+                !dismissedDuplicates &&
+                !confirmedTicketId &&
+                duplicateMatches.length > 0 && (
+                  <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                    <div className="flex items-start gap-2.5">
+                      <CopyCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          This may already be reported
+                        </h3>
+                        <p className="text-xs text-slate-600">
+                          {duplicateMatches.length} similar open{' '}
+                          {duplicateMatches.length === 1 ? 'ticket' : 'tickets'} within{' '}
+                          {duplicateRadius} m of this spot. Confirming helps crews prioritise it
+                          without waiting for a duplicate ticket.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="mt-3 space-y-2">
+                      {duplicateMatches.slice(0, 3).map((match) => (
+                        <li
+                          key={match.id}
+                          className="rounded-xl border border-amber-200/80 bg-white p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-500">
+                              {match.id}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-800">
+                              {match.subType}
+                            </span>
+                            <span className="text-[11px] text-slate-400">{match.status}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                            <span>{Math.round(match.distanceMeters)} m away</span>
+                            <span className="inline-flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {match.affected} confirmed affected
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={confirmingId !== null}
+                            onClick={() => void handleConfirmDuplicate(match.id)}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#234E35] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1A3D29] disabled:opacity-60"
+                          >
+                            {confirmingId === match.id
+                              ? 'Saving…'
+                              : "It's still a problem — confirm"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      type="button"
+                      onClick={() => setDismissedDuplicates(true)}
+                      className="mt-3 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-800"
+                    >
+                      None of these — file a new report
+                    </button>
+                  </section>
+                )}
+
+              {confirmedTicketId && (
+                <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-start gap-2.5">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Confirmation saved to {confirmedTicketId}
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        The crew handling that ticket can see that {residentName} is still affected.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {onOpenTicket && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenTicket(confirmedTicketId)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#234E35] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1A3D29]"
+                      >
+                        Track this ticket
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDismissedDuplicates(true)}
+                      className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-emerald-400"
+                    >
+                      File a separate report anyway
+                    </button>
+                  </div>
+                </section>
+              )}
               {/* Field 1: Description */}
               <div>
                 <label className="block text-xs font-semibold text-slate-800 mb-1.5">
@@ -690,6 +877,43 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35] shadow-2xs"
                 />
               </div>
+
+              {/* Predicted priority and crew */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                    Predicted priority
+                  </span>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                  </div>
+                  <ul className="mt-2 space-y-0.5">
+                    {draftPriority.factors.slice(0, 3).map((factor) => (
+                      <li
+                        key={factor.label}
+                        className="flex items-center justify-between text-[11px] text-slate-500"
+                      >
+                        <span>{factor.label}</span>
+                        <span className="font-semibold text-slate-700">+{factor.points}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="sm:border-l sm:border-slate-100 sm:pl-4">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                    Likely first response
+                  </span>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-lg bg-[#EBF5EE] text-[#234E35] flex items-center justify-center border border-emerald-200">
+                      <Truck className="w-4 h-4" />
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 leading-tight">
+                      {crewPreview.team ? crewPreview.team.name : 'No crew pre-assigned'}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-500">{crewPreview.reason}</p>
+                </div>
+              </section>
 
               {/* Bottom Actions */}
               <div className="pt-4 flex items-center justify-between">
@@ -769,15 +993,38 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                     <span>{coordinates}</span>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Assigned crew</span>
+                  <span className="font-bold text-slate-800 inline-flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-800" />
+                    {assignedCrew ?? crewPreview.team?.name ?? 'To be confirmed'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Priority</span>
+                  <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                </div>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="space-y-3">
+              {generatedTicketId && onOpenTicket && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTicket(generatedTicketId)}
+                  className="w-full py-3 px-5 rounded-xl bg-[#234E35] hover:bg-[#1A3D29] text-white font-semibold text-xs sm:text-sm transition shadow-xs"
+                >
+                  Track {generatedTicketId}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onViewReports}
-                className="w-full py-3 px-5 rounded-xl bg-[#234E35] hover:bg-[#1A3D29] text-white font-semibold text-xs sm:text-sm transition shadow-xs"
+                className="w-full py-3 px-5 rounded-xl bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold text-xs sm:text-sm transition shadow-xs"
               >
                 View My Reports
               </button>

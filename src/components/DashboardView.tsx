@@ -21,7 +21,7 @@ import {
   Building2,
   Calendar,
 } from 'lucide-react';
-import { HazardReport, ReportStatus } from '../types';
+import { HazardReport, REPORT_STATUSES, ReportStatus } from '../types';
 import { filterReports, paginateReports } from '../utils/reportList';
 import { CivicLogo } from './CivicLogo';
 import { MapModal } from './MapModal';
@@ -65,6 +65,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Status metrics calculation
   const totalReportsCount = reports.length;
+  const awaitingTriageCount = reports.filter(
+    (r) => r.status === 'Received' || r.status === 'Verified'
+  ).length;
   const assignedCount = reports.filter((r) => r.status === 'Assigned').length;
   const inProgressCount = reports.filter((r) => r.status === 'In Progress').length;
   const resolvedCount = reports.filter((r) => r.status === 'Resolved').length;
@@ -141,6 +144,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Status Badge Renderer
   const renderStatusBadge = (status: ReportStatus) => {
     switch (status) {
+      case 'Received':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100/90 text-slate-700 border border-slate-200/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+            Received
+          </span>
+        );
+      case 'Verified':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-100/90 text-cyan-800 border border-cyan-200/60">
+            <CheckCircle2 className="w-3 h-3 text-cyan-600" />
+            Verified
+          </span>
+        );
       case 'In Progress':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100/90 text-amber-800 border border-amber-200/60">
@@ -290,7 +307,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           ) : (
           <>
           {/* 4 Metric Cards Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-8">
             {/* 1. Total Reports */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex items-center gap-3.5 shadow-2xs">
               <div className="w-11 h-11 rounded-xl bg-emerald-50 text-[#234E35] border border-emerald-100 flex items-center justify-center flex-shrink-0">
@@ -302,6 +319,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
                 <span className="text-xl sm:text-2xl font-extrabold text-slate-900 block leading-tight">
                   {totalReportsCount}
+                </span>
+              </div>
+            </div>
+
+            {/* Awaiting triage */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex items-center gap-3.5 shadow-2xs">
+              <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-slate-600" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-slate-500 block">
+                  Awaiting triage
+                </span>
+                <span className="text-xl sm:text-2xl font-extrabold text-slate-900 block leading-tight">
+                  {awaitingTriageCount}
                 </span>
               </div>
             </div>
@@ -388,7 +420,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
                   <Filter className="w-3 h-3" /> Filter:
                 </span>
-                {(['ALL', 'In Progress', 'Assigned', 'Resolved', 'Rejected'] as const).map((st) => (
+                {(['ALL', ...REPORT_STATUSES] as const).map((st) => (
                   <button
                     key={st}
                     onClick={() => {
@@ -628,7 +660,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   onChange={(event) => void handleStatusChange(event.target.value as ReportStatus)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:cursor-wait disabled:opacity-60"
                 >
-                  {(['Assigned', 'In Progress', 'Resolved', 'Rejected'] as const).map((status) => (
+                  {REPORT_STATUSES.map((status) => (
                     <option key={status} value={status}>{status}</option>
                   ))}
                 </select>

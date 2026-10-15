@@ -196,6 +196,8 @@ export default function App() {
             onCancel={() => setActiveView('landing')}
             onFinish={handleReportFinish}
             onViewReports={() => setActiveView('dashboard')}
+            onOpenTicket={openTicket}
+            residentName={currentUser.name}
           />
         );
       case 'dashboard':
