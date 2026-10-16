@@ -22,7 +22,7 @@ export const INITIAL_REPORTS: HazardReport[] = [
     detectedAt: '14 Oct 2026, 09:14 AM',
     timeline: [
       { stage: 'Photo Submitted', timestamp: '14 Oct 2026, 09:14 AM', done: true, note: 'Received via CivicFix Mobile Web' },
-      { stage: 'AI Hazard Verification', timestamp: '14 Oct 2026, 09:15 AM', done: true, note: 'Classified: Pothole (99.4% confidence), Severity: High' },
+      { stage: 'Sample triage (demo data)', timestamp: '14 Oct 2026, 09:15 AM', done: true, note: 'Illustrative seed data; no model analysis was run.' },
       { stage: 'Dispatched to Department', timestamp: '14 Oct 2026, 09:40 AM', done: true, note: 'Assigned to Roads & Stormwater Maintenance Unit' },
       { stage: 'Repair Crew En Route', timestamp: '14 Oct 2026, 11:20 AM', done: true, note: 'Asphalt patching vehicle deployed' },
       { stage: 'Inspection & Resolution', timestamp: 'Estimated Today', done: false, note: 'Final compaction and road clearance' },
@@ -46,7 +46,7 @@ export const INITIAL_REPORTS: HazardReport[] = [
     detectedAt: '13 Oct 2026, 14:32 PM',
     timeline: [
       { stage: 'Photo Submitted', timestamp: '13 Oct 2026, 14:32 PM', done: true },
-      { stage: 'AI Hazard Verification', timestamp: '13 Oct 2026, 14:33 PM', done: true },
+      { stage: 'Sample triage (demo data)', timestamp: '13 Oct 2026, 14:33 PM', done: true, note: 'Illustrative seed data; no model analysis was run.' },
       { stage: 'Dispatched to Department', timestamp: '13 Oct 2026, 15:00 PM', done: true },
       { stage: 'Repair Crew En Route', timestamp: 'Scheduled 14 Oct', done: false },
     ],
@@ -69,7 +69,7 @@ export const INITIAL_REPORTS: HazardReport[] = [
     detectedAt: '12 Oct 2026, 08:20 AM',
     timeline: [
       { stage: 'Photo Submitted', timestamp: '12 Oct 2026, 08:20 AM', done: true },
-      { stage: 'AI Hazard Verification', timestamp: '12 Oct 2026, 08:21 AM', done: true },
+      { stage: 'Sample triage (demo data)', timestamp: '12 Oct 2026, 08:21 AM', done: true, note: 'Illustrative seed data; no model analysis was run.' },
       { stage: 'Dispatched to Department', timestamp: '12 Oct 2026, 09:10 AM', done: true },
       { stage: 'Cleanup In Progress', timestamp: '13 Oct 2026, 10:00 AM', done: true },
     ],
@@ -92,7 +92,7 @@ export const INITIAL_REPORTS: HazardReport[] = [
     detectedAt: '11 Oct 2026, 07:15 AM',
     timeline: [
       { stage: 'Photo Submitted', timestamp: '11 Oct 2026, 07:15 AM', done: true },
-      { stage: 'AI Hazard Verification', timestamp: '11 Oct 2026, 07:16 AM', done: true },
+      { stage: 'Sample triage (demo data)', timestamp: '11 Oct 2026, 07:16 AM', done: true, note: 'Illustrative seed data; no model analysis was run.' },
       { stage: 'Dispatched to Department', timestamp: '11 Oct 2026, 07:30 AM', done: true },
       { stage: 'Controller Repaired & Tested', timestamp: '11 Oct 2026, 10:45 AM', done: true },
     ],
@@ -115,7 +115,7 @@ export const INITIAL_REPORTS: HazardReport[] = [
     detectedAt: '10 Oct 2026, 11:05 AM',
     timeline: [
       { stage: 'Photo Submitted', timestamp: '10 Oct 2026, 11:05 AM', done: true },
-      { stage: 'AI Hazard Verification', timestamp: '10 Oct 2026, 11:06 AM', done: true },
+      { stage: 'Sample triage (demo data)', timestamp: '10 Oct 2026, 11:06 AM', done: true, note: 'Illustrative seed data; no model analysis was run.' },
       { stage: 'Drain Flushed & Cleared', timestamp: '10 Oct 2026, 16:30 PM', done: true },
     ],
   },

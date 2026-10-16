@@ -99,6 +99,32 @@ test('resident civic dashboard renders the queue, detail and dispatch cards', ()
   );
 });
 
+test('dashboard keeps its sidebar while showing another feature', () => {
+  const dashboard = render(
+    createElement(HomeView, {
+      activeView: 'community' as ActiveView,
+      content: createElement('section', null, 'Community panel'),
+      reports: SEED_REPORTS,
+      collections: collections(),
+      role: 'resident' as UserRole,
+      currentUser,
+      selectedId: SEED_REPORTS[0].id,
+      onSelectReport: noop,
+      onUpdateReportStatus: asyncNoop,
+      onRefresh: noop,
+      onNavigate: noop,
+      onRoleChange: noop,
+      onStartReport: noop,
+      onOpenReport: noop,
+    }),
+    'Community panel'
+  );
+  assert.ok(dashboard.includes('Overview'));
+  assert.ok(dashboard.includes('Transparency'));
+  assert.match(dashboard, /Community<\/button>/);
+  assert.ok(!dashboard.includes('Civic dashboard'));
+});
+
 test('map, ticket, transparency and assistant views render seed data', () => {
   render(
     createElement(CivicMapView, {
@@ -148,6 +174,17 @@ test('report wizard renders the photo, details and confirmation steps', () => {
       initialStep: 1 as StepNumber,
     }),
     'Photo'
+  );
+  render(
+    createElement(ReportWizard, {
+      onCancel: noop,
+      onFinish: noop,
+      onViewReports: noop,
+      onOpenTicket: noop,
+      residentName: 'Demo Citizen',
+      initialStep: 2 as StepNumber,
+    }),
+    'Choose severity'
   );
   render(
     createElement(ReportWizard, {

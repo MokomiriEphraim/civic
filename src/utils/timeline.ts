@@ -3,7 +3,7 @@ import type { HazardReport, ReportStatus } from '../types';
 /** Canonical public ticket pipeline shown by the transparency tracker. */
 export const PIPELINE_STAGES = [
   'Report submitted',
-  'AI classified',
+  'Report details reviewed',
   'Verified by municipality',
   'Assigned to crew',
   'Repair in progress',
@@ -116,10 +116,10 @@ export function markResidentConfirmation(
 /** Stages shown as complete for a freshly submitted report. */
 export function initialTimeline(
   submittedAt: string,
-  detectionNote: string
+  sampleNote: string
 ): NonNullable<HazardReport['timeline']> {
   return [
     { stage: 'Report submitted', timestamp: submittedAt, done: true, note: 'Received via CivicFix' },
-    { stage: 'AI classified', timestamp: submittedAt, done: true, note: detectionNote },
+    { stage: 'Report details reviewed', timestamp: submittedAt, done: true, note: sampleNote },
   ];
 }

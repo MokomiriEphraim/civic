@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { analysePhoto, hashString, type DetectionPreset } from '../src/utils/ai';
 import { answerQuestion, type AssistantContext } from '../src/utils/assistant';
 import { dispatchTeam } from '../src/utils/dispatch';
 import { findDuplicateReports } from '../src/utils/duplicate';
@@ -9,6 +8,7 @@ import { daysAgo, parseLooseDate } from '../src/utils/dates';
 import { distanceMeters, parseCoordinates } from '../src/utils/proximity';
 import { bandFor, priorityScore, reportPriority } from '../src/utils/priority';
 import {
+  computeAiReviewMetrics,
   computeDepartmentStats,
   computeInsights,
   computeMunicipalityStats,
@@ -31,39 +31,6 @@ function report(overrides: Partial<HazardReport> = {}): HazardReport {
     ...overrides,
   };
 }
-
-const PRESETS: DetectionPreset[] = [
-  {
-    hazardType: 'Road Hazard',
-    subType: 'Pothole',
-    severity: 'High',
-    department: 'Roads & Stormwater',
-    departmentUnit: '(Maintenance & Repairs)',
-    description: 'Large pothole.',
-    location: '-33.9249, 18.4241',
-    address: 'Kloof Nek Rd, Cape Town',
-  },
-  {
-    hazardType: 'Water Hazard',
-    subType: 'Broken Water Main',
-    severity: 'Critical',
-    department: 'Water & Sanitation',
-    departmentUnit: '(Emergency Valve Team)',
-    description: 'Burst main.',
-    location: '-33.9152, 18.4087',
-    address: 'Somerset Rd, Green Point',
-  },
-  {
-    hazardType: 'Waste Hazard',
-    subType: 'Illegal Dumping',
-    severity: 'Medium',
-    department: 'Waste Management',
-    departmentUnit: '(Special Waste Removal)',
-    description: 'Dumping pile.',
-    location: '-33.9314, 18.4260',
-    address: 'Roeland St, Cape Town CBD',
-  },
-];
 
 test('parseCoordinates accepts valid pairs and rejects malformed input', () => {
   assert.deepEqual(parseCoordinates('-33.9249, 18.4241'), { lat: -33.9249, lon: 18.4241 });
@@ -282,6 +249,52 @@ test('municipality stats compute rates, open work and resolution averages', () =
   assert.equal(waste?.open, 1);
 });
 
+test('AI review metrics count resident acceptance separately from unclassified results', () => {
+  const metrics = computeAiReviewMetrics([
+    report({
+      aiAssessment: {
+        model: 'Xenova/clip-vit-base-patch32@d15189d7028b43f1d3e65039190477f6af591c2a',
+        label: 'Pothole or damaged road surface',
+        score: 0.62,
+        inferenceMs: 120,
+        outcome: 'accepted',
+      },
+    }),
+    report({
+      id: '#CF-10001',
+      aiAssessment: {
+        model: 'Xenova/clip-vit-base-patch32@d15189d7028b43f1d3e65039190477f6af591c2a',
+        label: 'Broken water pipe or water leak',
+        score: 0.37,
+        inferenceMs: 220,
+        outcome: 'edited',
+      },
+    }),
+    report({
+      id: '#CF-10002',
+      aiAssessment: {
+        model: 'Xenova/clip-vit-base-patch32@d15189d7028b43f1d3e65039190477f6af591c2a',
+        label: 'No clear municipal infrastructure hazard',
+        score: 0.51,
+        inferenceMs: 50,
+        outcome: 'unclassified',
+      },
+    }),
+  ]);
+
+  assert.deepEqual(metrics, {
+    reportsAnalysed: 3,
+    reviewed: 2,
+    accepted: 1,
+    edited: 1,
+    unclassified: 1,
+    acceptanceRate: 50,
+    averageInferenceMs: 130,
+  });
+  assert.equal(computeAiReviewMetrics([]).acceptanceRate, null);
+  assert.equal(computeAiReviewMetrics([]).averageInferenceMs, null);
+});
+
 test('empty report feeds produce zeroed stats instead of NaN', () => {
   const stats = computeMunicipalityStats([]);
   assert.equal(stats.reportsReceived, 0);
@@ -306,31 +319,6 @@ test('insights flag a department whose volume is climbing', () => {
   assert.equal(trend?.tone, 'warning');
   assert.match(trend!.detail, /increased 200%/);
   assert.match(trend!.detail, /\(1 → 3\)/);
-});
-
-test('hashString is stable and photo analysis is deterministic', () => {
-  assert.equal(hashString('photo-a'), hashString('photo-a'));
-  assert.notEqual(hashString('photo-a'), hashString('photo-b'));
-
-  const first = analysePhoto('data:image/jpeg;base64,AAAA', PRESETS);
-  const second = analysePhoto('data:image/jpeg;base64,AAAA', PRESETS);
-  assert.deepEqual(first, second);
-  assert.ok(first);
-  assert.ok(first!.confidence >= 88 && first!.confidence <= 98);
-  assert.ok(PRESETS.some((preset) => preset.subType === first!.subType));
-  assert.match(first!.severityReason, /: /);
-
-  assert.equal(analysePhoto('anything', []), null);
-});
-
-test('photo analysis can include preset location only when asked', () => {
-  const withoutLocation = analysePhoto('photo', PRESETS);
-  assert.equal(withoutLocation?.location, undefined);
-  assert.equal(withoutLocation?.address, undefined);
-
-  const withLocation = analysePhoto('photo', PRESETS, true);
-  assert.ok(withLocation?.location, 'expected a preset location');
-  assert.ok(withLocation?.address, 'expected a preset address');
 });
 
 function assistantContext(overrides: Partial<AssistantContext> = {}): AssistantContext {

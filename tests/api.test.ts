@@ -82,11 +82,36 @@ test('report API validates, persists updates, serializes writes, and reloads sto
     const first = await jsonRequest<HazardReport>(api, '/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newReport()),
+      body: JSON.stringify(newReport({
+        aiAssessment: {
+          model: 'Xenova/clip-vit-base-patch32@d15189d7028b43f1d3e65039190477f6af591c2a',
+          label: 'Pothole or damaged road surface',
+          score: 0.72,
+          inferenceMs: 140,
+          outcome: 'accepted',
+        },
+      })),
     });
     assert.equal(first.response.status, 201);
     assert.match(first.body.id, /^#CF-\d{5}$/);
     assert.notEqual(first.body.id, '#CF-00001');
+    assert.equal(first.body.aiAssessment?.outcome, 'accepted');
+    assert.equal(first.body.aiAssessment?.score, 0.72);
+
+    const invalidAssessment = await jsonRequest<{ error: string }>(api, '/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReport({
+        aiAssessment: {
+          model: 'Xenova/clip-vit-base-patch32@d15189d7028b43f1d3e65039190477f6af591c2a',
+          label: 'Pothole or damaged road surface',
+          score: 1.4,
+          inferenceMs: 140,
+          outcome: 'accepted',
+        },
+      })),
+    });
+    assert.equal(invalidAssessment.response.status, 400);
 
     const second = await jsonRequest<HazardReport>(api, '/api/reports', {
       method: 'POST',

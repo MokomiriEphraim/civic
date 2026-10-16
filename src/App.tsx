@@ -185,6 +185,25 @@ export default function App() {
     }
   };
 
+  const renderDashboard = (content?: React.ReactNode) => (
+    <HomeView
+      activeView={activeView}
+      content={content}
+      reports={reports}
+      collections={collections}
+      role={role}
+      currentUser={currentUser}
+      onNavigate={(view) => setActiveView(view)}
+      onRoleChange={setRole}
+      onStartReport={() => handleStartReport(1)}
+      onOpenReport={openTicket}
+      selectedId={selectedReportId}
+      onSelectReport={setSelectedReportId}
+      onUpdateReportStatus={handleReportStatusUpdate}
+      onRefresh={reload}
+    />
+  );
+
   const viewNode = useMemo(() => {
     switch (activeView) {
       case 'landing':
@@ -205,24 +224,9 @@ export default function App() {
           />
         );
       case 'home':
-        return (
-          <HomeView
-            reports={reports}
-            collections={collections}
-            role={role}
-            currentUser={currentUser}
-            onNavigate={(view) => setActiveView(view)}
-            onRoleChange={setRole}
-            onStartReport={() => handleStartReport(1)}
-            onOpenReport={openTicket}
-            selectedId={selectedReportId}
-            onSelectReport={setSelectedReportId}
-            onUpdateReportStatus={handleReportStatusUpdate}
-            onRefresh={reload}
-          />
-        );
+        return renderDashboard();
       case 'map':
-        return (
+        return renderDashboard(
           <CivicMapView
             reports={reports}
             selectedId={selectedReportId}
@@ -231,9 +235,9 @@ export default function App() {
           />
         );
       case 'transparency':
-        return <TransparencyView reports={reports} />;
+        return renderDashboard(<TransparencyView reports={reports} />);
       case 'ticket':
-        return (
+        return renderDashboard(
           <TicketView
             reports={reports}
             selectedId={selectedReportId}
@@ -245,7 +249,7 @@ export default function App() {
           />
         );
       case 'community':
-        return (
+        return renderDashboard(
           <CommunityView
             discussions={collections.discussions}
             events={collections.events}
@@ -254,7 +258,7 @@ export default function App() {
           />
         );
       case 'bulletins':
-        return (
+        return renderDashboard(
           <BulletinsView
             alerts={collections.alerts}
             announcements={collections.announcements}
@@ -262,7 +266,7 @@ export default function App() {
           />
         );
       case 'discover':
-        return (
+        return renderDashboard(
           <DiscoverView
             projects={collections.projects}
             polls={collections.polls}
@@ -271,7 +275,7 @@ export default function App() {
           />
         );
       case 'ops':
-        return (
+        return renderDashboard(
           <OpsView
             reports={reports}
             onUpdateReportStatus={handleReportStatusUpdate}
@@ -279,7 +283,7 @@ export default function App() {
           />
         );
       case 'worker':
-        return (
+        return renderDashboard(
           <WorkerView reports={reports} onUpdateReportStatus={handleReportStatusUpdate} />
         );
     }
@@ -311,7 +315,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {activeView !== 'home' && (
+      {(activeView === 'landing' || activeView === 'report') && (
         <Navbar
           activeView={activeView}
           role={role}

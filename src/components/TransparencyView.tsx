@@ -2,6 +2,7 @@ import React from 'react';
 import type { HazardReport, ReportStatus } from '../types';
 import { REPORT_STATUSES } from '../types';
 import {
+  computeAiReviewMetrics,
   computeDepartmentStats,
   computeInsights,
   computeMunicipalityStats,
@@ -38,6 +39,7 @@ export const TransparencyView: React.FC<TransparencyViewProps> = ({ reports }) =
   const stats = computeMunicipalityStats(reports);
   const departments = computeDepartmentStats(reports);
   const insights = computeInsights(reports);
+  const aiReview = computeAiReviewMetrics(reports);
 
   const kpis = [
     { label: 'Reports received', value: String(stats.reportsReceived), accent: 'text-slate-800', icon: <Inbox className="w-4 h-4" /> },
@@ -101,6 +103,44 @@ export const TransparencyView: React.FC<TransparencyViewProps> = ({ reports }) =
                 </Card>
               ))}
             </div>
+          </section>
+
+          <section className="mt-8">
+            <SectionHeading
+              title="AI assistance review"
+              hint="Resident edits provide a workflow signal; they are not verified model accuracy."
+            />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                { label: 'Reports analysed', value: aiReview.reportsAnalysed },
+                { label: 'Suggestions accepted', value: aiReview.accepted },
+                { label: 'Suggestions edited', value: aiReview.edited },
+                { label: 'Unclassified', value: aiReview.unclassified },
+                {
+                  label: 'Acceptance rate',
+                  value: aiReview.acceptanceRate === null ? '—' : `${aiReview.acceptanceRate}%`,
+                },
+                {
+                  label: 'Avg. model time',
+                  value: aiReview.averageInferenceMs === null
+                    ? '—'
+                    : `${aiReview.averageInferenceMs} ms`,
+                },
+              ].map((metric) => (
+                <Card key={metric.label} className="p-3 sm:p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    {metric.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-[#234E35]">{metric.value}</p>
+                </Card>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+              Acceptance rate = accepted AI suggestions ÷ suggestions accepted or edited at submission.
+              Unclassified images are excluded. Average model time excludes first-time model download.
+              Acceptance is not a precision, recall, or safety measure; evaluate against a consented,
+              human-labelled dataset before operational use.
+            </p>
           </section>
 
           <section className="mt-8">

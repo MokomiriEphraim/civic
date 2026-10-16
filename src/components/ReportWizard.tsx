@@ -17,17 +17,32 @@ import {
   Users,
   Maximize2
 } from 'lucide-react';
-import { DuplicateMatch, StepNumber, HazardReport } from '../types';
+import {
+  AiAssessment,
+  DuplicateMatch,
+  HazardSeverity,
+  HazardReport,
+  HAZARD_SEVERITIES,
+  StepNumber,
+} from '../types';
 import { HAZARD_PRESETS } from '../data/mockReports';
 import { confirmIssue, createReport, detectDuplicates } from '../api/reports';
 import { POTHOLE_IMAGE } from '../data/images';
 import { dispatchTeam } from '../utils/dispatch';
 import { priorityScore } from '../utils/priority';
+import {
+  analyseHazardImage,
+  HAZARD_OPTIONS,
+  type HazardVisionResult,
+} from '../utils/hazardVision';
 import { WavyFooter } from './WavyFooter';
 import { MapModal } from './MapModal';
 import { BandBadge } from './ui';
 
 const potholeImg = POTHOLE_IMAGE;
+const DEPARTMENT_OPTIONS = Array.from(
+  new Set(HAZARD_OPTIONS.map((option) => option.department).filter(Boolean))
+);
 
 interface ReportWizardProps {
   onCancel: () => void;
@@ -51,10 +66,17 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState<boolean>(false);
 
-  // These are editable demo suggestions, not live AI classifications.
+  const [visionResult, setVisionResult] = useState<HazardVisionResult | null>(null);
+  const [visionStatus, setVisionStatus] = useState<
+    'loading-model' | 'analysing-image' | 'complete' | 'error'
+  >('loading-model');
+  const [modelProgress, setModelProgress] = useState<number | null>(null);
+  const [visionError, setVisionError] = useState<string | null>(null);
+  const [classificationError, setClassificationError] = useState<string | null>(null);
+  const [selectedHazardId, setSelectedHazardId] = useState('pothole');
   const [hazardCategory, setHazardCategory] = useState('Road Hazard');
   const [hazardSpecific, setHazardSpecific] = useState('Pothole');
-  const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('High');
+  const [severity, setSeverity] = useState<HazardSeverity | ''>('');
   const [hazardDescription, setHazardDescription] = useState(
     'Large pothole, potential risk to vehicles and pedestrians.'
   );
@@ -80,6 +102,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionLock = useRef(false);
+  const userSelectedReportType = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +114,53 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
   const [confirmedTicketId, setConfirmedTicketId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setVisionResult(null);
+    setVisionError(null);
+    setVisionStatus('loading-model');
+    setModelProgress(null);
+
+    void analyseHazardImage(selectedPhoto, (status, progress) => {
+      if (cancelled) return;
+      if (status === 'model-progress') {
+        setVisionStatus('loading-model');
+        if (progress !== undefined) setModelProgress(Math.round(progress));
+      } else {
+        setVisionStatus(status);
+      }
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setVisionResult(result);
+        setVisionStatus('complete');
+
+        if (userSelectedReportType.current) return;
+
+        const suggestion = result.suggestion;
+        if (suggestion) setClassificationError(null);
+        setSelectedHazardId(suggestion?.id ?? 'not-a-hazard');
+        setHazardCategory(suggestion?.hazardType ?? '');
+        setHazardSpecific(suggestion?.subType ?? '');
+        setDepartment(suggestion?.department ?? '');
+        setDepartmentUnit(suggestion?.departmentUnit ?? '');
+        if (suggestion) setHazardDescription(suggestion.description);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setVisionStatus('error');
+        setVisionError(
+          error instanceof Error
+            ? error.message
+            : 'Local image analysis failed. Select the report details manually.'
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPhoto]);
 
   useEffect(() => {
     if (currentStep !== 3) return;
@@ -136,13 +206,15 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
     }
   };
 
-  const draftPriority = priorityScore({
-    severity,
-    status: 'Received',
-    department,
-    affected: 0,
-    date: noticedDate,
-  });
+  const draftPriority = severity
+    ? priorityScore({
+        severity,
+        status: 'Received',
+        department,
+        affected: 0,
+        date: noticedDate,
+      })
+    : null;
   const crewPreview = dispatchTeam(department, coordinates);
 
   const compressPhotoFile = async (file: File): Promise<string> => {
@@ -199,8 +271,16 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
     try {
       setPhotoError(null);
-      setSelectedPhoto(await compressPhotoFile(file));
-      setHazardDescription('Demo suggestion only. Please confirm the hazard details before submitting.');
+      const compressedPhoto = await compressPhotoFile(file);
+      userSelectedReportType.current = false;
+      setSelectedHazardId('not-a-hazard');
+      setHazardCategory('');
+      setHazardSpecific('');
+      setDepartment('');
+      setDepartmentUnit('');
+      setSeverity('');
+      setSelectedPhoto(compressedPhoto);
+      setHazardDescription('Describe what happened after reviewing the photo suggestion.');
     } catch (error) {
       setPhotoError(
         error instanceof Error ? error.message : 'The selected image could not be processed.'
@@ -215,11 +295,12 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
   const handleSelectPreset = (presetIndex: number) => {
     const preset = HAZARD_PRESETS[presetIndex];
+    userSelectedReportType.current = true;
     setPhotoError(null);
     setSelectedPhoto(preset.photoUrl);
     setHazardCategory(preset.hazardType);
     setHazardSpecific(preset.subType);
-    setSeverity(preset.severity);
+    setSeverity('');
     setHazardDescription(preset.description);
     setDepartment(preset.department);
     setDepartmentUnit(preset.departmentUnit);
@@ -227,8 +308,29 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
     setAddress(preset.address);
   };
 
+  const handleSelectHazard = (optionId: string) => {
+    const option = HAZARD_OPTIONS.find((item) => item.id === optionId);
+    if (!option) return;
+    userSelectedReportType.current = true;
+    setClassificationError(null);
+    setSelectedHazardId(option.id);
+    setHazardCategory(option.hazardType);
+    setHazardSpecific(option.subType);
+    setDepartment(option.department);
+    setDepartmentUnit(option.departmentUnit);
+    if (option.description) setHazardDescription(option.description);
+  };
+
   const handleGoToReview = () => {
     setCurrentStep(2);
+  };
+
+  const handleContinueToDetails = () => {
+    if (!hazardCategory.trim() || !hazardSpecific.trim() || !department.trim() || !severity) {
+      setClassificationError('Choose a report type, department, and severity before continuing.');
+      return;
+    }
+    setCurrentStep(3);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -238,7 +340,13 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
       setSubmissionError('Fix the photo selection error before submitting.');
       return;
     }
-    if (!selectedPhoto || !hazardCategory.trim() || !hazardSpecific.trim() || !department.trim()) {
+    if (
+      !selectedPhoto ||
+      !hazardCategory.trim() ||
+      !hazardSpecific.trim() ||
+      !department.trim() ||
+      !severity
+    ) {
       setSubmissionError('Add a hazard photo and confirm the hazard details before submitting.');
       return;
     }
@@ -262,6 +370,24 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
       year: 'numeric',
     });
 
+    let aiAssessment: HazardReport['aiAssessment'];
+    if (visionResult) {
+      const outcome: NonNullable<AiAssessment>['outcome'] = !visionResult.suggestion
+        ? 'unclassified'
+        : hazardCategory === visionResult.suggestion.hazardType &&
+            hazardSpecific === visionResult.suggestion.subType &&
+            department === visionResult.suggestion.department
+          ? 'accepted'
+          : 'edited';
+      aiAssessment = {
+        model: visionResult.model,
+        label: visionResult.label,
+        score: visionResult.score,
+        inferenceMs: visionResult.inferenceMs,
+        outcome,
+      };
+    }
+
     const report: Omit<HazardReport, 'id'> = {
       hazardType: `${hazardCategory} (${hazardSpecific})`,
       subType: hazardSpecific,
@@ -276,8 +402,17 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
       photoUrl: selectedPhoto,
       contact: contact.trim() || undefined,
       detectedAt: formattedTimestamp,
+      aiAssessment,
       timeline: [
         { stage: 'Report submitted', timestamp: formattedTimestamp, done: true },
+        {
+          stage: 'Report details reviewed',
+          timestamp: formattedTimestamp,
+          done: true,
+          note: aiAssessment
+            ? `Resident ${aiAssessment.outcome} the ${aiAssessment.label} suggestion.`
+            : 'Resident confirmed the report details; AI assistance was unavailable or not used.',
+        },
       ],
     };
 
@@ -451,9 +586,25 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
             <p className="text-xs sm:text-sm text-slate-600 mb-6">
               Take a clear photo of the issue or upload from your device.
             </p>
-            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              Demo mode: hazard suggestions use example presets; this app does not currently run image AI or send reports to a municipality.
+            <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+              The open-source vision model runs in your browser. Its first download may take a while.
+              Your photo is not sent to the model host; it is saved with your report only after you submit.
             </p>
+            <div aria-live="polite" className="mb-4 text-xs text-slate-600">
+              {visionStatus === 'loading-model' &&
+                `Loading the local vision model${modelProgress === null ? '…' : `: ${modelProgress}%`}`}
+              {visionStatus === 'analysing-image' && 'Analysing this photo in your browser…'}
+              {visionStatus === 'complete' &&
+                (visionResult?.suggestion
+                  ? `Suggestion ready: ${visionResult.suggestion.subType}. Review it before continuing.`
+                  : 'The model could not identify a supported hazard. Choose the report type manually.')}
+              {visionStatus === 'error' && 'AI assistance is unavailable; you can still complete the report manually.'}
+            </div>
+            {visionError && (
+              <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Local analysis unavailable: {visionError}
+              </p>
+            )}
 
             {/* Large Upload Box */}
             <div
@@ -546,7 +697,11 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                       Photo selected
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      Suggested type: {hazardSpecific}
+                      {visionResult?.suggestion
+                        ? `AI suggestion: ${visionResult.suggestion.subType}`
+                        : visionStatus === 'error' || visionStatus === 'complete'
+                          ? 'Choose a report type manually'
+                          : 'AI suggestion pending'}
                     </span>
                   </div>
                 </div>
@@ -588,6 +743,38 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
             >
               Review the suggested details
             </h2>
+            <section aria-live="polite" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-700">
+              <div className="flex items-start gap-2">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+                <div>
+                  <p className="font-semibold text-slate-900">Local AI image suggestion</p>
+                  {visionStatus === 'loading-model' && (
+                    <p className="mt-1 text-xs">
+                      {modelProgress === null
+                        ? 'Downloading or loading the model. This may take a few minutes the first time.'
+                        : `Downloading model files: ${modelProgress}%.`}
+                    </p>
+                  )}
+                  {visionStatus === 'analysing-image' && (
+                    <p className="mt-1 text-xs">Analysing the photo on this device…</p>
+                  )}
+                  {visionStatus === 'complete' && visionResult && (
+                    <p className="mt-1 text-xs">
+                      {visionResult.suggestion
+                        ? `Suggested: ${visionResult.suggestion.subType}`
+                        : 'No supported hazard suggestion was strong enough.'}{' '}
+                      Model score: {Math.round(visionResult.score * 100)}% (relative ranking, not a calibrated probability or accuracy measure).
+                    </p>
+                  )}
+                  {visionStatus === 'error' && (
+                    <p className="mt-1 text-xs">Analysis failed. Enter the report details manually.</p>
+                  )}
+                  <p className="mt-2 text-xs">
+                    The model does not judge severity, urgency, or whether a report is genuine. Confirm or change every field; municipal staff must verify reports.
+                  </p>
+                </div>
+              </div>
+            </section>
 
             {/* Main Split Review Card */}
             <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12 gap-0 mb-8">
@@ -636,6 +823,66 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                     </div>
                   </div>
 
+                  <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Report type — confirm or change
+                      <select
+                        value={selectedHazardId}
+                        onChange={(event) => handleSelectHazard(event.target.value)}
+                        className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-normal text-slate-800 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35]"
+                      >
+                        {HAZARD_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Severity — your assessment
+                      <select
+                        value={severity}
+                        onChange={(event) => {
+                          const selected = HAZARD_SEVERITIES.find(
+                            (value) => value === event.target.value
+                          );
+                          if (selected) setSeverity(selected);
+                        }}
+                        className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-normal text-slate-800 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35]"
+                      >
+                        <option value="" disabled>Choose severity</option>
+                        {HAZARD_SEVERITIES.map((value) => (
+                          <option key={value} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {classificationError && (
+                    <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                      {classificationError}
+                    </p>
+                  )}
+                  <label className="mb-5 block text-xs font-semibold text-slate-700">
+                    Suggested department — confirm or change
+                    <select
+                      value={department}
+                      onChange={(event) => {
+                        setDepartment(event.target.value);
+                        const option = HAZARD_OPTIONS.find(
+                          (item) => item.id === selectedHazardId
+                        );
+                        if (option && option.department !== event.target.value) {
+                          setDepartmentUnit('(Needs review)');
+                        } else if (option) {
+                          setDepartmentUnit(option.departmentUnit);
+                        }
+                      }}
+                      className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-normal text-slate-800 focus:border-[#234E35] focus:outline-none focus:ring-1 focus:ring-[#234E35]"
+                    >
+                      {DEPARTMENT_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+
                   {/* Severity Bar */}
                   <div className="mb-5">
                     <div className="flex items-center gap-2 mb-2">
@@ -643,7 +890,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                         Severity
                       </span>
                       <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E65A2C] text-white">
-                        {severity}
+                        {severity || 'Choose severity'}
                       </span>
                     </div>
                     {/* Meter bar */}
@@ -651,7 +898,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                       <div
                         className="h-full bg-gradient-to-r from-amber-500 to-[#E65A2C] rounded-full transition-all duration-700"
                         style={{
-                          width: `${({ Low: 25, Medium: 50, High: 75 }[severity])}%`,
+                          width: `${severity ? ({ Low: 25, Medium: 50, High: 75, Critical: 100 }[severity]) : 0}%`,
                         }}
                       />
                     </div>
@@ -690,7 +937,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                       </div>
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                          Suggested Department
+                          Department
                         </span>
                         <span className="text-xs font-bold text-slate-900 block leading-tight">
                           {department}
@@ -709,7 +956,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                 {/* Classification limitation */}
                 <div className="mt-4 pt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Demo classification only • Confirm details before submitting</span>
+                  <span>Open-source local model • You confirm every suggestion</span>
                 </div>
               </div>
             </div>
@@ -727,7 +974,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
               <button
                 type="button"
-                onClick={() => setCurrentStep(3)}
+                onClick={handleContinueToDetails}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#234E35] hover:bg-[#1A3D29] text-white text-xs sm:text-sm font-semibold transition shadow-xs"
               >
                 <span>Next</span>
@@ -923,10 +1170,16 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                     Predicted priority
                   </span>
                   <div className="mt-1.5 flex items-center gap-2">
-                    <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                    {draftPriority ? (
+                      <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                    ) : (
+                      <span className="text-xs text-slate-500">
+                        Choose a severity to preview the priority estimate.
+                      </span>
+                    )}
                   </div>
                   <ul className="mt-2 space-y-0.5">
-                    {draftPriority.factors.slice(0, 3).map((factor) => (
+                    {draftPriority?.factors.slice(0, 3).map((factor) => (
                       <li
                         key={factor.label}
                         className="flex items-center justify-between text-[11px] text-slate-500"
@@ -1006,7 +1259,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                   {generatedTicketId ? `Ticket ${generatedTicketId}` : 'Ticket number pending'}
                 </span>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E65A2C] text-white">
-                  {severity} Severity
+                  {severity || 'Not selected'} Severity
                 </span>
               </div>
 
@@ -1042,7 +1295,11 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
 
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-medium">Priority</span>
-                  <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                  {draftPriority ? (
+                    <BandBadge band={draftPriority.band} score={draftPriority.score} />
+                  ) : (
+                    <span className="text-xs text-slate-500">Not available</span>
+                  )}
                 </div>
               </div>
             </div>

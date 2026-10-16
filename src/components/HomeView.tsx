@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 
 interface HomeViewProps {
+  activeView?: ActiveView;
+  content?: React.ReactNode;
   reports: HazardReport[];
   collections: CivicCollections;
   role: UserRole;
@@ -186,6 +188,8 @@ function narrative(report: HazardReport, crewName: string | null, affected: numb
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
+  activeView = 'home',
+  content,
   reports,
   collections,
   role,
@@ -418,12 +422,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </p>
           <div className="space-y-0.5">
             {section.items.map((item) => {
-              const active = item.view === 'home';
+              const active = item.view === activeView;
               return (
                 <button
                   key={item.view}
                   type="button"
                   onClick={() => onNavigate(item.view)}
+                  aria-current={active ? 'page' : undefined}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                     active
                       ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200'
@@ -569,8 +574,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
               key={item.view}
               type="button"
               onClick={() => onNavigate(item.view)}
+              aria-current={item.view === activeView ? 'page' : undefined}
               className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-                item.view === 'home'
+                item.view === activeView
                   ? 'bg-[#234E35] text-white'
                   : 'bg-white text-slate-600 ring-1 ring-slate-200'
               }`}
@@ -581,6 +587,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <main className="flex-1 px-4 py-5 sm:px-6">
+          {content ? content : (
+          <>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900">Civic dashboard</h1>
@@ -1074,6 +1082,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
             </div>
           </div>
+          </>
+          )}
         </main>
       </div>
     </div>

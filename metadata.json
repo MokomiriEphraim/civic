@@ -1,6 +1,6 @@
 {
-  "name": "CivicFix - Municipal Hazard Reporting & Tracking",
-  "description": "Snap a photo of a municipal hazard and automatically detect, classify, and route it to the right department. Track repairs in real-time.",
+  "name": "CivicFix - Civic Services and Community Platform",
+  "description": "Explore city updates and community services, submit infrastructure reports, and review local AI category suggestions before submission.",
   "requestFramePermissions": ["geolocation"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

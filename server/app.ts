@@ -620,6 +620,7 @@ app.post('/api/reports', async (request, response, next) => {
           dispatch.team?.name ?? (request.body.assignedTeam as string | undefined),
         notes: request.body.notes as string | undefined,
         detectedAt: request.body.detectedAt as string | undefined,
+        aiAssessment: request.body.aiAssessment as HazardReport['aiAssessment'],
         timeline,
       } as HazardReport;
       const nextReports = [report, ...existingReports];

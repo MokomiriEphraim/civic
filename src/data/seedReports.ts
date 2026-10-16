@@ -79,7 +79,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Deep pothole in the eastbound lane where buses brake for the intersection.',
     photoUrl: POTHOLE_IMAGE,
     assignedTeam: 'Roads Crew Delta 4',
-    detectionNote: 'Pothole · 94% confidence · severity High',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45823',
@@ -96,7 +96,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Water surfacing through a pavement joint and running down the pedestrian lane.',
     photoUrl: WATER_PHOTO,
     assignedTeam: 'Rapid Water Response 2',
-    detectionNote: 'Broken water main · 96% confidence · severity Critical',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45822',
@@ -113,7 +113,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Intersection signal stuck on amber flash, causing uncertain right-of-way.',
     photoUrl: SIGNAL_PHOTO,
     assignedTeam: 'Traffic Signals Squad 3',
-    detectionNote: 'Traffic light fault · 97% confidence · severity High',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45825',
@@ -130,7 +130,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Construction rubble dumped against the boundary fence overnight.',
     photoUrl: DUMPING_PHOTO,
     assignedTeam: 'Civic Clean Sweep 1',
-    detectionNote: 'Illegal dumping · 91% confidence · severity Medium',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45826',
@@ -147,7 +147,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Lamp head hanging loose after a delivery vehicle clipped the pole.',
     photoUrl: LAMP_PHOTO,
     assignedTeam: 'Lighting Crew 2',
-    detectionNote: 'Damaged street lamp · 93% confidence · severity Medium',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45827',
@@ -164,7 +164,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Stormwater grate blocked with litter, water pooling across the kerb lane.',
     photoUrl: DRAIN_PHOTO,
     assignedTeam: 'Drainage Jet Vac Unit 7',
-    detectionNote: 'Blocked drain · 92% confidence · severity Medium',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45828',
@@ -181,7 +181,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Open manhole with no cover or cone in a residential street.',
     photoUrl: MANHOLE_PHOTO,
     assignedTeam: 'Emergency Road Safety',
-    detectionNote: 'Missing manhole cover · 95% confidence · severity Critical',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45829',
@@ -198,7 +198,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Public bin overflowing after the lunchtime rush onto the paving.',
     photoUrl: BIN_PHOTO,
     assignedTeam: 'Area Cleansing Crew 4',
-    detectionNote: 'Overflowing bin · 90% confidence · severity Low',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45830',
@@ -215,7 +215,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Crossing markings faded to nothing outside the primary school gate.',
     photoUrl: CROSSING_PHOTO,
     assignedTeam: 'Line Marking Ops',
-    detectionNote: 'Faded crossing · 89% confidence · severity Low',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
   makeReport({
     id: '#CF-45831',
@@ -232,7 +232,7 @@ const EXTRA_REPORTS: HazardReport[] = [
     description: 'Storm-snapped branch resting across the pedestrian walkway.',
     photoUrl: TREE_PHOTO,
     assignedTeam: 'Tree Care Specialists',
-    detectionNote: 'Fallen branch · 94% confidence · severity Medium',
+    detectionNote: 'Illustrative seed data; no model analysis was run.',
   }),
 ];
 

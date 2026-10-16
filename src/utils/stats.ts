@@ -164,3 +164,39 @@ export function computeInsights(
 
   return insights;
 }
+
+export interface AiReviewMetrics {
+  reportsAnalysed: number;
+  reviewed: number;
+  accepted: number;
+  edited: number;
+  unclassified: number;
+  acceptanceRate: number | null;
+  averageInferenceMs: number | null;
+}
+
+/** Resident acceptance is a workflow signal, not a measure of model accuracy. */
+export function computeAiReviewMetrics(reports: HazardReport[]): AiReviewMetrics {
+  const assessments = reports.flatMap((report) =>
+    report.aiAssessment ? [report.aiAssessment] : []
+  );
+  const accepted = assessments.filter((assessment) => assessment.outcome === 'accepted').length;
+  const edited = assessments.filter((assessment) => assessment.outcome === 'edited').length;
+  const reviewed = accepted + edited;
+
+  return {
+    reportsAnalysed: assessments.length,
+    reviewed,
+    accepted,
+    edited,
+    unclassified: assessments.filter((assessment) => assessment.outcome === 'unclassified').length,
+    acceptanceRate: reviewed === 0 ? null : Math.round((accepted / reviewed) * 100),
+    averageInferenceMs:
+      assessments.length === 0
+        ? null
+        : Math.round(
+            assessments.reduce((total, assessment) => total + assessment.inferenceMs, 0) /
+              assessments.length
+          ),
+  };
+}

@@ -45,12 +45,21 @@ export interface HazardReport {
   assignedTeam?: string;
   notes?: string;
   detectedAt?: string;
+  aiAssessment?: AiAssessment;
   timeline?: {
     stage: string;
     timestamp: string;
     done: boolean;
     note?: string;
   }[];
+}
+
+export interface AiAssessment {
+  model: string;
+  label: string;
+  score: number;
+  inferenceMs: number;
+  outcome: 'accepted' | 'edited' | 'unclassified';
 }
 
 export type ActiveView =
@@ -261,18 +270,6 @@ export interface DuplicateMatch {
   address?: string;
   status: ReportStatus;
   affected: number;
-}
-
-export interface DetectionResult {
-  hazardType: string;
-  subType: string;
-  department: string;
-  departmentUnit: string;
-  severity: HazardSeverity;
-  confidence: number;
-  severityReason: string;
-  location?: string;
-  address?: string;
 }
 
 export interface MunicipalityStats {

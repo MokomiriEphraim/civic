@@ -73,6 +73,24 @@ export function isTimeline(value: unknown): boolean {
   );
 }
 
+function isAiAssessment(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value)) return false;
+  return (
+    isBoundedString(value.model, 120) &&
+    isBoundedString(value.label, 160) &&
+    typeof value.score === 'number' &&
+    Number.isFinite(value.score) &&
+    value.score >= 0 &&
+    value.score <= 1 &&
+    typeof value.inferenceMs === 'number' &&
+    Number.isFinite(value.inferenceMs) &&
+    value.inferenceMs >= 0 &&
+    value.inferenceMs <= 600_000 &&
+    ['accepted', 'edited', 'unclassified'].includes(String(value.outcome))
+  );
+}
+
 export function isHazardReport(value: unknown): value is HazardReport {
   if (!isRecord(value)) return false;
 
@@ -95,6 +113,7 @@ export function isHazardReport(value: unknown): value is HazardReport {
     hasOptionalString(value, 'assignedTeam', 120) &&
     hasOptionalString(value, 'notes', 5000) &&
     hasOptionalString(value, 'detectedAt', 80) &&
+    isAiAssessment(value.aiAssessment) &&
     isTimeline(value.timeline)
   );
 }
