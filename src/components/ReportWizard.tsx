@@ -145,7 +145,48 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   });
   const crewPreview = dispatchTeam(department, coordinates);
 
-  const processPhotoFile = (file: File | undefined) => {
+  const compressPhotoFile = async (file: File): Promise<string> => {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    let width = Math.min(bitmap.width, 1600);
+    let height = Math.round((bitmap.height / bitmap.width) * width);
+
+    try {
+      for (let attempt = 0; attempt < 7; attempt += 1) {
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Image compression is unavailable in this browser.');
+        context.drawImage(bitmap, 0, 0, width, height);
+
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, 'image/jpeg', Math.max(0.5, 0.82 - attempt * 0.05))
+        );
+        if (!blob) throw new Error('The selected image could not be compressed.');
+        if (blob.size <= 2_500_000) {
+          return await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('The selected image could not be read.'));
+            reader.onload = () => {
+              if (typeof reader.result === 'string') resolve(reader.result);
+              else reject(new Error('The selected image could not be read.'));
+            };
+            reader.readAsDataURL(blob);
+          });
+        }
+        width = Math.round(width * 0.8);
+        height = Math.round(height * 0.8);
+      }
+    } finally {
+      bitmap.close();
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+
+    throw new Error('The image is too large to upload. Choose a smaller photo.');
+  };
+
+  const processPhotoFile = async (file: File | undefined) => {
     if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setPhotoError('Choose a JPEG, PNG, or WebP image.');
@@ -156,18 +197,15 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
       return;
     }
 
-    setPhotoError(null);
-    const reader = new FileReader();
-    reader.onerror = () => setPhotoError('The selected image could not be read.');
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setSelectedPhoto(reader.result);
-        setHazardDescription('Demo suggestion only. Please confirm the hazard details before submitting.');
-      } else {
-        setPhotoError('The selected image could not be read.');
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setPhotoError(null);
+      setSelectedPhoto(await compressPhotoFile(file));
+      setHazardDescription('Demo suggestion only. Please confirm the hazard details before submitting.');
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error ? error.message : 'The selected image could not be processed.'
+      );
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1026,7 +1064,7 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
                 onClick={onViewReports}
                 className="w-full py-3 px-5 rounded-xl bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold text-xs sm:text-sm transition shadow-xs"
               >
-                View My Reports
+                View dashboard
               </button>
 
               <button

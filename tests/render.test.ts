@@ -55,34 +55,31 @@ function render(element: ReactElement, contains?: string): string {
 }
 
 test('navigation and role chrome render for both roles', () => {
-  render(
+  const residentNavigation = render(
     createElement(Navbar, {
       activeView: 'home' as ActiveView,
       role: 'resident' as UserRole,
       onNavigate: noop,
       onRoleChange: noop,
-      onStartReport: noop,
-      user: currentUser,
       onToggleUser: noop,
     }),
-    'Community'
+    'Dashboard'
   );
+  assert.ok(!residentNavigation.includes('Community'));
   render(
     createElement(Navbar, {
       activeView: 'ops' as ActiveView,
       role: 'staff' as UserRole,
       onNavigate: noop,
       onRoleChange: noop,
-      onStartReport: noop,
-      user: currentUser,
       onToggleUser: noop,
     }),
-    'Field crew'
+    'Dashboard'
   );
   render(createElement(RoleSwitcher, { role: 'staff' as UserRole, onChange: noop }), 'Municipal');
 });
 
-test('resident home console renders the live queue, detail and dispatch cards', () => {
+test('resident civic dashboard renders the queue, detail and dispatch cards', () => {
   render(
     createElement(HomeView, {
       reports: SEED_REPORTS,
@@ -98,7 +95,7 @@ test('resident home console renders the live queue, detail and dispatch cards', 
       onStartReport: noop,
       onOpenReport: noop,
     }),
-    'Live queue'
+    'Civic dashboard'
   );
 });
 

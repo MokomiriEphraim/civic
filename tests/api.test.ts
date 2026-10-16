@@ -174,6 +174,29 @@ test('report API validates, persists updates, serializes writes, and reloads sto
   }
 });
 
+test('Vercel API rewrite restores the Express API route', async () => {
+  const directory = await createTemporaryDirectory();
+  let api: RunningApi | undefined;
+
+  try {
+    api = await startApi(path.join(directory, 'reports.json'), {
+      env: {
+        VERCEL: '1',
+        SUPABASE_URL: 'https://example.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'test-only-key',
+      },
+    });
+    const response = await fetch(
+      `${api.baseUrl}/api/index?__vercel_path=%2Fhealth&source=vercel`
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: 'ok' });
+  } finally {
+    await api?.stop();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('invalid stored JSON returns a safe error and leaves the file unchanged', async () => {
   const directory = await createTemporaryDirectory();
   const dataFile = path.join(directory, 'reports.json');

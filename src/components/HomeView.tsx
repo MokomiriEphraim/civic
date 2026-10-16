@@ -20,7 +20,6 @@ import {
   ClipboardList,
   Clock,
   Droplets,
-  FileText,
   LayoutDashboard,
   Lightbulb,
   Map as MapIcon,
@@ -67,7 +66,7 @@ const NAV_SECTIONS: {
   {
     title: 'Operations',
     items: [
-      { view: 'home', label: 'Live queue', icon: <LayoutDashboard className="w-4 h-4" /> },
+      { view: 'home', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
       { view: 'ticket', label: 'Tickets', icon: <ClipboardList className="w-4 h-4" /> },
       { view: 'map', label: 'Civic map', icon: <MapIcon className="w-4 h-4" /> },
       { view: 'bulletins', label: 'Bulletins', icon: <Megaphone className="w-4 h-4" /> },
@@ -81,10 +80,9 @@ const NAV_SECTIONS: {
     ],
   },
   {
-    title: 'Performance',
+    title: 'City insights',
     items: [
       { view: 'transparency', label: 'Transparency', icon: <PieChart className="w-4 h-4" /> },
-      { view: 'dashboard', label: 'My reports', icon: <FileText className="w-4 h-4" /> },
     ],
   },
 ];
@@ -374,10 +372,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <button
           type="button"
           onClick={onStartReport}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#16140F] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-black"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#234E35] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#1A3D29]"
         >
           <PlusCircle className="h-4 w-4" />
-          Report a hazard
+          Report an issue
         </button>
         <div className="relative mt-2">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -391,23 +389,25 @@ export const HomeView: React.FC<HomeViewProps> = ({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('ops')}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-[#234E35]/30 bg-[#234E35]/5 px-3 py-2.5 text-xs font-bold text-[#1A4329] transition hover:bg-[#234E35]/12"
-        >
-          <Building2 className="h-4 w-4" />
-          Municipal dashboard
-        </button>
         {role === 'staff' && (
-          <button
-            type="button"
-            onClick={() => onNavigate('worker')}
-            className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-          >
-            <Truck className="h-3.5 w-3.5" />
-            Field crew console
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigate('ops')}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-[#234E35]/30 bg-[#234E35]/5 px-3 py-2.5 text-xs font-bold text-[#1A4329] transition hover:bg-[#234E35]/12"
+            >
+              <Building2 className="h-4 w-4" />
+              Operations console
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('worker')}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <Truck className="h-3.5 w-3.5" />
+              Field crew
+            </button>
+          </>
         )}
       </div>
 
@@ -483,7 +483,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <aside className="hidden w-60 shrink-0 flex-col justify-between border-r border-slate-200/80 bg-[#F7F6F2] p-4 lg:flex">
         <div>
           <div className="mb-5 flex items-center gap-2.5 px-1">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#16140F] text-xs font-black text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#234E35] text-xs font-black text-white">
               CF
             </span>
             <div className="leading-tight">
@@ -501,8 +501,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <RoleSwitcher role={role} onChange={onRoleChange} compact />
           <button
             type="button"
-            onClick={() => onNavigate('dashboard')}
-            title="Open my reports"
+            onClick={() => onNavigate('home')}
+            title="Open dashboard"
             className="flex w-full items-center gap-2.5 rounded-xl bg-white p-2.5 text-left ring-1 ring-slate-200 transition hover:ring-slate-300"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#234E35] text-[11px] font-bold text-white">
@@ -517,7 +517,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 {currentUser.name}
               </span>
               <span className="block text-[10px] text-slate-500">
-                {role === 'staff' ? 'Care coordinator' : 'Resident'} · My reports
+                {role === 'staff' ? 'Care coordinator' : 'Resident'} · Dashboard
               </span>
             </span>
           </button>
@@ -532,7 +532,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <span className="hidden sm:inline">CivicFix</span>
             <span className="hidden sm:inline text-slate-300">›</span>
-            <span className="text-slate-800">Live queue</span>
+            <span className="text-slate-800">Dashboard</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200">
@@ -558,9 +558,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="flex gap-1.5 overflow-x-auto border-b border-slate-200/70 bg-[#F7F6F2] px-4 py-2 lg:hidden">
           {[
             ...NAV_SECTIONS.flatMap((section) => section.items),
-            { view: 'ops' as ActiveView, label: 'Municipal dashboard' },
             ...(role === 'staff'
-              ? [{ view: 'worker' as ActiveView, label: 'Field crew' }]
+              ? [
+                  { view: 'ops' as ActiveView, label: 'Operations' },
+                  { view: 'worker' as ActiveView, label: 'Field crew' },
+                ]
               : []),
           ].map((item) => (
             <button
@@ -569,7 +571,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onNavigate(item.view)}
               className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
                 item.view === 'home'
-                  ? 'bg-[#16140F] text-white'
+                  ? 'bg-[#234E35] text-white'
                   : 'bg-white text-slate-600 ring-1 ring-slate-200'
               }`}
             >
@@ -581,7 +583,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <main className="flex-1 px-4 py-5 sm:px-6">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">Live queue</h1>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">Civic dashboard</h1>
               <p className="text-xs text-slate-500">
                 {counts.all} ticket{counts.all === 1 ? '' : 's'}
                 {departmentFilter ? ` in ${departmentFilter}` : ''} · sorted by urgency
@@ -595,7 +597,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   onClick={() => setChip(item.key)}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
                     chip === item.key
-                      ? 'bg-[#16140F] text-white'
+                      ? 'bg-[#234E35] text-white'
                       : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-slate-900'
                   }`}
                 >
@@ -844,7 +846,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenReport(selected.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#16140F] px-4 py-2 text-xs font-bold text-white transition hover:bg-black"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#234E35] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#1A3D29]"
                     >
                       Open ticket
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -910,7 +912,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     overlay={
                       <>
                         {selected && (
-                          <span className="absolute left-3 top-3 rounded-full bg-[#16140F]/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                          <span className="absolute left-3 top-3 rounded-full bg-[#234E35]/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
                             {selected.id} · {selected.status}
                           </span>
                         )}
@@ -970,7 +972,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                           type="button"
                           onClick={handleDispatch}
                           disabled={dispatching}
-                          className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#16140F] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-black disabled:opacity-60"
+                          className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#234E35] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1A3D29] disabled:opacity-60"
                         >
                           <Truck className="h-3.5 w-3.5" />
                           {dispatching ? 'Assigning…' : 'Dispatch crew'}

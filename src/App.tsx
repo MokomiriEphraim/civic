@@ -10,7 +10,6 @@ import { loadCollections, type CivicCollections } from './api/collections';
 import { Navbar } from './components/Navbar';
 import { LandingView } from './components/LandingView';
 import { ReportWizard } from './components/ReportWizard';
-import { DashboardView } from './components/DashboardView';
 import { HomeView } from './components/HomeView';
 import { CivicMapView } from './components/CivicMapView';
 import { TransparencyView } from './components/TransparencyView';
@@ -175,15 +174,12 @@ export default function App() {
         setActiveView('report');
         break;
       case 6:
-        setActiveView('dashboard');
-        break;
-      case 7:
         setActiveView('home');
         break;
-      case 8:
+      case 7:
         setActiveView('ops');
         break;
-      case 9:
+      case 8:
         setActiveView('worker');
         break;
     }
@@ -194,8 +190,7 @@ export default function App() {
       case 'landing':
         return (
           <LandingView
-            onStartReport={() => handleStartReport(1)}
-            onTrackReport={() => setActiveView('dashboard')}
+            onOpenDashboard={() => setActiveView('home')}
           />
         );
       case 'report':
@@ -204,22 +199,9 @@ export default function App() {
             initialStep={wizardStep}
             onCancel={() => setActiveView('landing')}
             onFinish={handleReportFinish}
-            onViewReports={() => setActiveView('dashboard')}
+            onViewReports={() => setActiveView('home')}
             onOpenTicket={openTicket}
             residentName={currentUser.name}
-          />
-        );
-      case 'dashboard':
-        return (
-          <DashboardView
-            reports={reports}
-            onStartReport={() => handleStartReport(1)}
-            onGoHome={() => setActiveView('home')}
-            onUpdateReportStatus={handleReportStatusUpdate}
-            isLoading={isLoadingReports}
-            loadError={apiError}
-            onRetryLoad={reload}
-            currentUser={currentUser}
           />
         );
       case 'home':
@@ -317,7 +299,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F6F8F5] text-slate-800 flex flex-col font-sans relative pb-28">
-      {apiError && activeView !== 'dashboard' && (
+      {apiError && (
         <div role="alert" className="bg-red-50 px-4 py-2 text-center text-sm text-red-800">
           Could not load reports from the backend: {apiError}{' '}
           <button
@@ -329,15 +311,13 @@ export default function App() {
           </button>
         </div>
       )}
-      {activeView !== 'dashboard' && activeView !== 'home' && (
+      {activeView !== 'home' && (
         <Navbar
           activeView={activeView}
           role={role}
           onNavigate={(view) => setActiveView(view)}
           onRoleChange={setRole}
-          onStartReport={() => handleStartReport(1)}
-          user={currentUser}
-          onToggleUser={() => setActiveView('dashboard')}
+          onToggleUser={() => setActiveView('home')}
           variant={activeView === 'report' ? 'wizard' : 'landing'}
         />
       )}
@@ -430,11 +410,11 @@ export default function App() {
             <button
               onClick={() => jumpToScreen(6)}
               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
-                activeView === 'dashboard'
+                activeView === 'home'
                   ? 'bg-emerald-500 text-slate-950 font-bold'
                   : 'bg-white/10 hover:bg-white/20 text-slate-200'
               }`}
-              title="Screen 6: Dashboard My Reports"
+              title="Screen 6: Civic Dashboard"
             >
               6. Dashboard
             </button>
@@ -442,37 +422,25 @@ export default function App() {
             <button
               onClick={() => jumpToScreen(7)}
               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
-                activeView === 'home'
+                activeView === 'ops'
                   ? 'bg-emerald-500 text-slate-950 font-bold'
                   : 'bg-white/10 hover:bg-white/20 text-slate-200'
               }`}
-              title="Screen 7: Live Queue Console"
+              title="Screen 7: Municipal Operations"
             >
-              7. Queue
+              7. Ops
             </button>
 
             <button
               onClick={() => jumpToScreen(8)}
               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
-                activeView === 'ops'
-                  ? 'bg-emerald-500 text-slate-950 font-bold'
-                  : 'bg-white/10 hover:bg-white/20 text-slate-200'
-              }`}
-              title="Screen 8: Municipal Dashboard"
-            >
-              8. Ops
-            </button>
-
-            <button
-              onClick={() => jumpToScreen(9)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition ${
                 activeView === 'worker'
                   ? 'bg-emerald-500 text-slate-950 font-bold'
                   : 'bg-white/10 hover:bg-white/20 text-slate-200'
               }`}
-              title="Screen 9: Field Crew Console"
+              title="Screen 8: Field Crew Console"
             >
-              9. Crew
+              8. Crew
             </button>
           </div>
 

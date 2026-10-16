@@ -2,6 +2,7 @@ import path from 'node:path';
 import { Router } from 'express';
 
 import { JsonStore, nextCollectionId, StoreValidationError } from './store';
+import type { JsonDocumentStore } from './jsonDocumentStore';
 import { isRecord, validateShape, type Shape } from './validation';
 import {
   ALERT_CATEGORIES,
@@ -219,7 +220,11 @@ function hasUsableId(value: unknown): value is { id: string } & Record<string, u
   );
 }
 
-export function createStores(dataDirectory: string, seedEnabled: boolean): CollectionStores {
+export function createStores(
+  dataDirectory: string,
+  seedEnabled: boolean,
+  documentStore?: JsonDocumentStore
+): CollectionStores {
   const stores: CollectionStores = new Map();
 
   for (const [name, config] of Object.entries(COLLECTION_CONFIGS)) {
@@ -230,6 +235,8 @@ export function createStores(dataDirectory: string, seedEnabled: boolean): Colle
         validate: (value) =>
           hasUsableId(value) && validateShape(value, config.shape),
         seed: seedEnabled && config.seed ? config.seed : undefined,
+        documentStore,
+        documentKey: `collection:${name}`,
       })
     );
   }

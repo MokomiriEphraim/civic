@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { JsonDocumentStore } from './jsonDocumentStore';
 
 export interface JsonStoreOptions<T> {
   file: string;
   validate: (value: unknown) => boolean;
   seed?: () => T[];
+  documentStore?: JsonDocumentStore;
+  documentKey?: string;
 }
 
 /**
@@ -23,6 +26,9 @@ export class JsonStore<T extends { id: string }> {
   }
 
   async list(): Promise<T[]> {
+    if (this.options.documentStore) {
+      return (await this.readRemoteItems()).items;
+    }
     if (this.cache) return this.cache;
 
     try {
@@ -51,20 +57,17 @@ export class JsonStore<T extends { id: string }> {
     body: Record<string, unknown>,
     makeId: (existing: T[]) => string
   ): Promise<T> {
-    return this.enqueue(async () => {
-      const items = await this.list();
+    return this.mutate((items) => {
       const created = { ...body, id: makeId(items) } as T;
       if (!this.options.validate(created)) {
         throw new StoreValidationError('The submitted record is not valid.');
       }
-      await this.persist([created, ...items]);
-      return created;
+      return { items: [created, ...items], result: created, changed: true };
     });
   }
 
   async upsert(id: string, body: Record<string, unknown>): Promise<T> {
-    return this.enqueue(async () => {
-      const items = await this.list();
+    return this.mutate((items) => {
       const candidate = { ...body, id } as T;
       if (!this.options.validate(candidate)) {
         throw new StoreValidationError('The submitted record is not valid.');
@@ -73,16 +76,33 @@ export class JsonStore<T extends { id: string }> {
       const next = [...items];
       if (index === -1) next.unshift(candidate);
       else next[index] = candidate;
-      await this.persist(next);
-      return candidate;
+      return { items: next, result: candidate, changed: true };
+    });
+  }
+
+  async update(id: string, update: (current: T | undefined) => T | undefined): Promise<T | undefined> {
+    return this.mutate((items) => {
+      const index = items.findIndex((item) => item.id === id);
+      const current = index === -1 ? undefined : items[index];
+      const candidate = update(current);
+      if (!candidate || candidate === current) {
+        return { items, result: candidate, changed: false };
+      }
+      if (candidate.id !== id || !this.options.validate(candidate)) {
+        throw new StoreValidationError('The updated record is not valid.');
+      }
+
+      const next = [...items];
+      if (index === -1) next.unshift(candidate);
+      else next[index] = candidate;
+      return { items: next, result: candidate, changed: true };
     });
   }
 
   async patch(id: string, changes: Record<string, unknown>): Promise<T | undefined> {
-    return this.enqueue(async () => {
-      const items = await this.list();
+    return this.mutate((items) => {
       const index = items.findIndex((item) => item.id === id);
-      if (index === -1) return undefined;
+      if (index === -1) return { items, result: undefined, changed: false };
 
       const candidate = { ...items[index], ...changes } as T;
       if (!this.options.validate(candidate)) {
@@ -90,19 +110,76 @@ export class JsonStore<T extends { id: string }> {
       }
       const next = [...items];
       next[index] = candidate;
-      await this.persist(next);
-      return candidate;
+      return { items: next, result: candidate, changed: true };
     });
   }
 
   async remove(id: string): Promise<boolean> {
-    return this.enqueue(async () => {
-      const items = await this.list();
+    return this.mutate((items) => {
       const next = items.filter((item) => item.id !== id);
-      if (next.length === items.length) return false;
-      await this.persist(next);
-      return true;
+      const changed = next.length !== items.length;
+      return { items: changed ? next : items, result: changed, changed };
     });
+  }
+
+  private async mutate<R>(
+    operation: (items: T[]) => { items: T[]; result: R; changed: boolean }
+  ): Promise<R> {
+    const documentStore = this.options.documentStore;
+    if (documentStore) {
+      const key = this.documentKey();
+      for (let attempt = 0; attempt < 32; attempt += 1) {
+        const document = await this.readRemoteItems();
+        const mutation = operation(document.items);
+        if (!mutation.changed) return mutation.result;
+        if (
+          await documentStore.compareAndSet(
+            key,
+            document.revision,
+            mutation.items
+          )
+        ) {
+          return mutation.result;
+        }
+      }
+      throw new Error(`Concurrent updates prevented saving document "${key}".`);
+    }
+
+    return this.enqueue(async () => {
+      const mutation = operation(await this.list());
+      if (mutation.changed) await this.persist(mutation.items);
+      return mutation.result;
+    });
+  }
+
+  private async readRemoteItems(): Promise<{ items: T[]; revision: number | null }> {
+    const store = this.options.documentStore;
+    if (!store) throw new Error('Remote document storage is not configured.');
+    const key = this.documentKey();
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const document = await store.read<unknown>(key);
+      if (document) {
+        if (!Array.isArray(document.value) || !document.value.every(this.options.validate)) {
+          throw new Error(`Data for document "${key}" has an invalid format.`);
+        }
+        return { items: document.value, revision: document.revision };
+      }
+
+      const seed = this.options.seed?.() ?? [];
+      if (seed.length === 0) return { items: seed, revision: null };
+      if (await store.compareAndSet(key, null, seed)) {
+        return { items: seed, revision: 1 };
+      }
+    }
+
+    throw new Error(`Could not initialize document "${key}" after concurrent writes.`);
+  }
+
+  private documentKey(): string {
+    const key = this.options.documentKey;
+    if (!key) throw new Error('Remote document storage requires a document key.');
+    return key;
   }
 
   private enqueue<R>(operation: () => Promise<R>): Promise<R> {

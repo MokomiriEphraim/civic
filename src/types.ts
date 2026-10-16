@@ -56,7 +56,6 @@ export interface HazardReport {
 export type ActiveView =
   | 'landing'
   | 'report'
-  | 'dashboard'
   | 'home'
   | 'map'
   | 'transparency'

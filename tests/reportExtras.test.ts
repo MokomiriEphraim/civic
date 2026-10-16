@@ -262,3 +262,68 @@ test('report extras: duplicates, confirmations, proof, ratings, messages, dispat
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('concurrent confirmations and messages are persisted without lost updates', async () => {
+  const directory = await createTemporaryDirectory();
+  const dataFile = path.join(directory, 'reports.json');
+  let api: RunningApi | undefined;
+
+  try {
+    api = await startApi(dataFile);
+
+    const initialEngagement = await jsonRequest<ReportEngagement>(
+      api,
+      '/api/reports/%23CF-45821/engagement'
+    );
+    const residentNames = Array.from(
+      { length: 8 },
+      (_, index) => `Concurrent Test Resident ${index}`
+    );
+    const confirmations = await Promise.all(
+      [...residentNames, residentNames[0]].map((resident) =>
+        jsonRequest<ReportEngagement>(api!, '/api/reports/%23CF-45821/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resident }),
+        })
+      )
+    );
+    assert.ok(confirmations.every(({ response }) => [200, 201].includes(response.status)));
+
+    const finalEngagement = await jsonRequest<ReportEngagement>(
+      api,
+      '/api/reports/%23CF-45821/engagement'
+    );
+    assert.equal(finalEngagement.body.affected, initialEngagement.body.affected + residentNames.length);
+    assert.ok(
+      residentNames.every((resident) =>
+        finalEngagement.body.confirmations.includes(resident)
+      )
+    );
+
+    const messages = await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        jsonRequest<TicketMessage>(api!, '/api/reports/%23CF-45815/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: `Concurrent test message ${index}` }),
+        })
+      )
+    );
+    assert.ok(
+      messages.every(({ response }) => response.status === 201),
+      JSON.stringify(messages.map(({ response, body }) => ({ status: response.status, body })))
+    );
+    assert.equal(new Set(messages.map(({ body }) => body.id)).size, messages.length);
+
+    const finalMessages = await jsonRequest<TicketMessage[]>(
+      api,
+      '/api/reports/%23CF-45815/messages'
+    );
+    assert.equal(finalMessages.body.length, messages.length);
+    assert.equal(new Set(finalMessages.body.map((message) => message.id)).size, messages.length);
+  } finally {
+    await api?.stop();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
