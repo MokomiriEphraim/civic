@@ -10,18 +10,26 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
       ...options?.headers,
     },
   });
-  const body: unknown = await response.json();
+  const text = await response.text();
+  let body: unknown = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
 
   if (!response.ok) {
     const message =
       typeof body === 'object' && body !== null && 'error' in body &&
       typeof body.error === 'string'
         ? body.error
-        : `Request failed with status ${response.status}.`;
+        : text && text.length < 200
+          ? text
+          : `Request failed with status ${response.status}.`;
     throw new Error(message);
   }
 
-  return body as T;
+  return (body ?? {}) as T;
 }
 
 export function post<T>(url: string, body: unknown): Promise<T> {

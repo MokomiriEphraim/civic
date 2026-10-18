@@ -26,11 +26,20 @@ import {
 
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.resolve(serverDirectory, '..');
+const isVercel = Boolean(process.env.VERCEL);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (Boolean(supabaseUrl) !== Boolean(supabaseServiceRoleKey)) {
+  throw new Error('Set both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or neither.');
+}
+
 const dataFile = path.resolve(
   projectDirectory,
-  process.env.REPORTS_FILE ?? 'data/reports.json'
+  process.env.REPORTS_FILE ??
+    (isVercel && !supabaseUrl ? '/tmp/civic-data/reports.json' : 'data/reports.json')
 );
-const dataDirectory = path.dirname(dataFile);
+const dataDirectory =
+  isVercel && !supabaseUrl ? '/tmp/civic-data' : path.dirname(dataFile);
 const port = Number(process.env.API_PORT ?? 3001);
 if (!Number.isInteger(port) || port < 0 || port > 65_535) {
   throw new Error('API_PORT must be an integer between 0 and 65535.');
@@ -40,18 +49,16 @@ const seedEnabled = !['0', 'false', 'no', 'off'].includes(
   (process.env.CIVIC_SEED ?? '1').toLocaleLowerCase()
 );
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (Boolean(supabaseUrl) !== Boolean(supabaseServiceRoleKey)) {
-  throw new Error('Set both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or neither.');
-}
-if (process.env.VERCEL && (!supabaseUrl || !supabaseServiceRoleKey)) {
-  throw new Error('Configure Supabase persistence before deploying the API to Vercel.');
-}
 const documentStore =
   supabaseUrl && supabaseServiceRoleKey
     ? new SupabaseJsonDocumentStore(supabaseUrl, supabaseServiceRoleKey)
     : undefined;
+
+if (isVercel && !documentStore) {
+  console.warn(
+    'Running on Vercel without Supabase credentials. Reports and collections will use in-memory and /tmp storage. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for permanent database persistence.'
+  );
+}
 
 const app = express();
 let reports: HazardReport[] | undefined;
