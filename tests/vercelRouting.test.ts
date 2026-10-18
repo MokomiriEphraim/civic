@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import { restoreVercelApiUrl } from '../server/vercelRouting';
+
+test('Vercel rewrites the API path through the Express function', async () => {
+  const config: {
+    rewrites: Array<{ source: string; destination: string }>;
+  } = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+
+  assert.deepEqual(config.rewrites[0], {
+    source: '/api/:path*',
+    destination: '/api/index?__vercel_path=/:path*',
+  });
+});
 
 test('restores the original API path and query after a Vercel rewrite', () => {
   assert.equal(
