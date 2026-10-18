@@ -51,6 +51,7 @@ interface ReportWizardProps {
   onOpenTicket?: (id: string) => void;
   residentName?: string;
   initialStep?: StepNumber;
+  onStepChange?: (step: StepNumber) => void;
 }
 
 export const ReportWizard: React.FC<ReportWizardProps> = ({
@@ -60,8 +61,20 @@ export const ReportWizard: React.FC<ReportWizardProps> = ({
   onOpenTicket,
   residentName = 'Demo Citizen',
   initialStep = 1,
+  onStepChange,
 }) => {
   const [currentStep, setCurrentStep] = useState<StepNumber>(initialStep);
+
+  useEffect(() => {
+    if (initialStep) {
+      setCurrentStep(initialStep);
+    }
+  }, [initialStep]);
+
+  useEffect(() => {
+    onStepChange?.(currentStep);
+  }, [currentStep, onStepChange]);
+
   const [selectedPhoto, setSelectedPhoto] = useState<string>(potholeImg);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState<boolean>(false);

@@ -1,13 +1,15 @@
 import React from 'react';
-import { ArrowRight, Building2 } from 'lucide-react';
+import { ArrowRight, Building2, PlusCircle } from 'lucide-react';
 import heroBg from '../assets/images/civicfix_hero_landscape_1791996007184.jpg';
 
 interface LandingViewProps {
   onOpenDashboard: () => void;
+  onStartReport?: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onOpenDashboard,
+  onStartReport,
 }) => {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#F2F1EC] px-4 pb-12 pt-5 sm:px-8 sm:pt-8">
@@ -37,7 +39,17 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
                 City updates, community and local services — together in one place.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                {onStartReport && (
+                  <button
+                    type="button"
+                    onClick={onStartReport}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#E65A2C] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-[#D44E22] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    Report a Hazard
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onOpenDashboard}

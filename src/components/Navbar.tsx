@@ -2,7 +2,7 @@ import React from 'react';
 import { CivicLogo } from './CivicLogo';
 import { ActiveView, UserRole } from '../types';
 import { RoleSwitcher } from './RoleSwitcher';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, PlusCircle } from 'lucide-react';
 
 interface NavbarProps {
   activeView: ActiveView;
@@ -10,6 +10,7 @@ interface NavbarProps {
   onNavigate: (view: ActiveView) => void;
   onRoleChange: (role: UserRole) => void;
   onToggleUser: () => void;
+  onStartReport?: () => void;
   variant?: 'landing' | 'wizard';
 }
 
@@ -19,6 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onRoleChange,
   onToggleUser,
+  onStartReport,
   variant = 'landing',
 }) => {
   if (variant === 'wizard') {
@@ -53,6 +55,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         <CivicLogo showTagline onClick={() => onNavigate('landing')} />
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {onStartReport && activeView !== 'report' && (
+            <button
+              type="button"
+              onClick={onStartReport}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#E65A2C] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#D44E22]"
+            >
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span>Report</span>
+            </button>
+          )}
           {!isLanding && <RoleSwitcher role={role} onChange={onRoleChange} compact />}
           <button
             type="button"

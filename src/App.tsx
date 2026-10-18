@@ -118,10 +118,30 @@ export default function App() {
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 
-  const handleStartReport = (step: StepNumber = 1) => {
+  const handleStartReport = useCallback((step: StepNumber = 1) => {
     setWizardStep(step);
     setActiveView('report');
-  };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        handleStartReport(1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleStartReport]);
 
   const handleReportFinish = (newReport: HazardReport) => {
     setReports((prev) => [
@@ -210,12 +230,14 @@ export default function App() {
         return (
           <LandingView
             onOpenDashboard={() => setActiveView('home')}
+            onStartReport={() => handleStartReport(1)}
           />
         );
       case 'report':
         return (
           <ReportWizard
             initialStep={wizardStep}
+            onStepChange={setWizardStep}
             onCancel={() => setActiveView('landing')}
             onFinish={handleReportFinish}
             onViewReports={() => setActiveView('home')}
@@ -322,6 +344,7 @@ export default function App() {
           onNavigate={(view) => setActiveView(view)}
           onRoleChange={setRole}
           onToggleUser={() => setActiveView('home')}
+          onStartReport={() => handleStartReport(1)}
           variant={activeView === 'report' ? 'wizard' : 'landing'}
         />
       )}
