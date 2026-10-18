@@ -1,0 +1,43 @@
+# Render Blueprint — deploy with "New > Blueprint Instance" at https://dashboard.render.com
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  # ── Express API (Web Service, free tier) ──────────────────────────
+  - type: web
+    name: civicfix-api
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: "3001"
+      # Render persistent disk keeps data between deploys (free plan has no disk,
+      # so data lives in the filesystem until the next deploy). For truly
+      # persistent data, set up Supabase and add these env vars in the dashboard:
+      # - key: SUPABASE_URL
+      #   value: <your-supabase-url>
+      # - key: SUPABASE_SERVICE_ROLE_KEY
+      #   value: <your-supabase-service-role-key>
+
+  # ── Vite Frontend (Static Site, free tier) ────────────────────────
+  - type: web
+    name: civicfix-web
+    runtime: static
+    buildCommand: npm install && npx vite build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      # SPA fallback: serve index.html for all client-side routes
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false   # Set this in the Render dashboard to your API service URL

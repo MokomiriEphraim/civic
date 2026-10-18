@@ -74,6 +74,19 @@ app.use((request, _response, next) => {
   next();
 });
 
+// CORS — allow cross-origin requests from the static site (Render deploys
+// the frontend and API on separate origins).
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (_req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(express.json({ limit: process.env.VERCEL ? '4mb' : '15mb' }));
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
