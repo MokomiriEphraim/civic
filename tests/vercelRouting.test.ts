@@ -28,3 +28,13 @@ test('restores a slash-prefixed API path without adding a duplicate slash', () =
     '/api/health'
   );
 });
+
+test('re-encodes hash characters in Vercel-forwarded ticket paths', () => {
+  assert.equal(
+    restoreVercelApiUrl(
+      '/api/index?__vercel_path=%2Freports%2F%23CF-12345%2Fengagement',
+      '/reports/#CF-12345/engagement'
+    ),
+    '/api/reports/%23CF-12345/engagement'
+  );
+});

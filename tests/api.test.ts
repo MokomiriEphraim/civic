@@ -222,6 +222,28 @@ test('Vercel API rewrite restores the Express API route', async () => {
   }
 });
 
+test('Vercel API rewrite preserves hash-prefixed report IDs', async () => {
+  const directory = await createTemporaryDirectory();
+  let api: RunningApi | undefined;
+
+  try {
+    api = await startApi(path.join(directory, 'reports.json'), {
+      env: {
+        VERCEL: '1',
+        CIVIC_SEED: '0',
+      },
+    });
+    const response = await fetch(
+      `${api.baseUrl}/api/index?__vercel_path=%2Freports%2F%23CF-40404`
+    );
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'Report not found.' });
+  } finally {
+    await api?.stop();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('invalid stored JSON returns a safe error and leaves the file unchanged', async () => {
   const directory = await createTemporaryDirectory();
   const dataFile = path.join(directory, 'reports.json');
